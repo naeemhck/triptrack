@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TripTrack — Privacy Policy</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #0F172A; color: #F8FAFC; line-height: 1.6; margin: 0; padding: 0; }
+    .container { max-width: 800px; margin: 40px auto; padding: 24px; background: #1E293B; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); border: 1px solid #334155; }
+    h1 { color: #14B8A6; font-size: 28px; border-bottom: 2px solid #334155; padding-bottom: 12px; }
+    h2 { color: #38BDF8; font-size: 20px; margin-top: 24px; }
+    p, li { color: #94A3B8; font-size: 15px; }
+    strong { color: #F8FAFC; }
+    ul { padding-left: 20px; }
+    .highlight { background: rgba(20, 184, 166, 0.15); border-left: 4px solid #14B8A6; padding: 12px 16px; border-radius: 8px; margin: 16px 0; }
+    .footer { margin-top: 40px; font-size: 13px; color: #64748B; text-align: center; border-top: 1px solid #334155; padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>TripTrack Privacy Policy</h1>
+    <p><strong>Effective Date:</strong> August 12, 2026</p>
+
+    <div class="highlight">
+      <strong>TripTrack Core Privacy Promise:</strong> Your location is shared strictly within authorized, active trip groups. Location tracking turns off automatically when a trip ends or when you toggle sharing off. We do not sell your data or use it for advertising.
+    </div>
+
+    <h2>1. Information We Collect</h2>
+    <p>TripTrack collects the minimum necessary data to provide realtime group location sharing and itinerary tracking:</p>
+    <ul>
+      <li><strong>Account Information:</strong> Display name, profile photo avatar (optional), and Firebase Authentication user ID.</li>
+      <li><strong>Precise Location Data:</strong> GPS coordinates (latitude, longitude, accuracy, timestamp) collected while location sharing is enabled.</li>
+      <li><strong>Background Location Data:</strong> Collected when you explicitly select "Allow Always" location access for active trips.</li>
+      <li><strong>Trip Stops & Notes:</strong> Manually marked stop titles, notes, interactive map pin coordinates, and automatically detected dwell stops.</li>
+      <li><strong>Stop Photos:</strong> User-selected photos attached to trip stops, normalized to JPEG format (max 10 MB).</li>
+      <li><strong>Device Push Tokens:</strong> Firebase Cloud Messaging (FCM) tokens used to deliver stop and stale-location notifications to your trip group.</li>
+    </ul>
+
+    <h2>2. How We Use Your Information</h2>
+    <ul>
+      <li>Displaying live positions of group members on interactive trip maps.</li>
+      <li>Automatic dwell detection for stopping events during active road trips.</li>
+      <li>Sending push notifications to trip members when a stop is created or location becomes stale.</li>
+      <li>Providing chronological trip timelines and historical itineraries for authorized trip members.</li>
+    </ul>
+
+    <h2>3. Location Sharing & Privacy Controls</h2>
+    <p>Location sharing is strictly opt-in and trip-scoped. You can adjust your location sharing mode at any time in the app:</p>
+    <ul>
+      <li><strong>🟢 Always Allow (Background & Foreground):</strong> Shares live location while app is open, in background, or when screen is locked.</li>
+      <li><strong>🟡 App Open Only (Foreground):</strong> Shares live location only while TripTrack is actively open on your screen.</li>
+      <li><strong>⚪ Sharing Disabled:</strong> Completely stops location updates and background tracking.</li>
+    </ul>
+
+    <h2>4. Data Retention & Security</h2>
+    <p>Your data is stored securely using Google Cloud Firestore and Firebase Storage with strict Security Rules:</p>
+    <ul>
+      <li>Live location coordinates are overwritten transiently during active trips and cleaned up upon trip completion.</li>
+      <li>Completed trip history and photos are accessible only to authorized current members of that trip.</li>
+      <li>Firebase Storage access enforces 2-document Firestore membership verification before granting media access.</li>
+    </ul>
+
+    <h2>5. In-App Account Deletion & Rights</h2>
+    <p>You have full control over your data. You may delete your TripTrack account at any time directly in the app under Settings/Profile or via our online request portal:</p>
+    <ul>
+      <li>Account deletion immediately stops all active location tracking and background services.</li>
+      <li>Deletes your FCM token, active state keys, and Firebase Authentication user account.</li>
+      <li>Removes your profile from Firestore and disassociates your UID from private trip membership.</li>
+    </ul>
+
+    <h2>6. Third-Party Data Processing</h2>
+    <p>TripTrack uses trusted cloud infrastructure providers strictly to deliver service functionality:</p>
+    <ul>
+      <li><strong>Google Cloud / Firebase:</strong> Authentication, Firestore database, Storage, and Cloud Messaging.</li>
+      <li><strong>Google Maps Platform:</strong> Map rendering and location visualizer APIs.</li>
+    </ul>
+
+    <h2>7. Contact Us</h2>
+    <p>If you have questions about this Privacy Policy or your data rights, contact us at: <a href="mailto:privacy@triptrack.app" style="color: #14B8A6;">privacy@triptrack.app</a></p>
+
+    <div class="footer">
+      &copy; 2026 TripTrack. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>

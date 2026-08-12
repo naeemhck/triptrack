@@ -1,0 +1,17 @@
+# Expo / React Native
+.expo/
+dist/
+web-build/
+node_modules/
+
+# Environment Variables
+.env
+.env.local
+.env*.local
+
+# Firebase / Secret keys
+*.pem
+
+# macOS / Windows
+.DS_Store
+Thumbs.db

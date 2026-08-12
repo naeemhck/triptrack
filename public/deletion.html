@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TripTrack — Account & Data Deletion Request</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #0F172A; color: #F8FAFC; line-height: 1.6; margin: 0; padding: 0; }
+    .container { max-width: 700px; margin: 40px auto; padding: 28px; background: #1E293B; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); border: 1px solid #334155; }
+    h1 { color: #14B8A6; font-size: 26px; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-top: 0; }
+    h2 { color: #38BDF8; font-size: 18px; margin-top: 24px; }
+    p, li { color: #94A3B8; font-size: 15px; }
+    strong { color: #F8FAFC; }
+    ol, ul { padding-left: 20px; }
+    .step-card { background: #0F172A; border-radius: 12px; padding: 16px; margin: 16px 0; border: 1px solid #334155; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 14px; font-weight: 600; color: #CBD5E1; margin-bottom: 6px; }
+    input, textarea { width: 100%; padding: 10px 12px; background: #1E293B; border: 1px solid #475569; border-radius: 8px; color: #F8FAFC; box-sizing: border-box; font-size: 14px; }
+    button { background: #EF4444; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; width: 100%; }
+    button:hover { background: #DC2626; }
+    .footer { margin-top: 32px; font-size: 13px; color: #64748B; text-align: center; border-top: 1px solid #334155; padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>TripTrack Account & Data Deletion Request</h1>
+    <p>In compliance with Google Play and Apple App Store user privacy policies, TripTrack provides full self-service account deletion in-app and web-based data deletion requests for all registered travelers.</p>
+
+    <h2>Method 1: In-App Instant Deletion (Recommended)</h2>
+    <div class="step-card">
+      <ol style="margin: 0; padding-left: 20px;">
+        <li>Open the <strong>TripTrack</strong> app on your iOS or Android device.</li>
+        <li>Navigate to <strong>Trip List / Profile Settings</strong> screen.</li>
+        <li>Tap the red <strong>"Delete Account"</strong> button at the bottom of the screen.</li>
+        <li>Confirm prompt. Your account, background tracking services, FCM push token, and local data will be deleted immediately.</li>
+      </ol>
+    </div>
+
+    <h2>Method 2: Web Deletion Request Form</h2>
+    <p>If you no longer have access to the TripTrack app on your device, submit a web deletion request below. Deletion requests are processed within 24 hours.</p>
+
+    <form action="mailto:support@triptrack.app" method="post" enctype="text/plain">
+      <div class="form-group">
+        <label for="email">Account Email / Phone Number associated with TripTrack:</label>
+        <input type="text" id="email" name="user_identifier" required placeholder="e.g. traveler@example.com or +1 555-0199">
+      </div>
+      <div class="form-group">
+        <label for="reason">Reason for Deletion (Optional):</label>
+        <textarea id="reason" name="reason" rows="3" placeholder="Tell us why you are deleting your account..."></textarea>
+      </div>
+      <button type="submit">Submit Account & Data Deletion Request</button>
+    </form>
+
+    <h2>What Data Is Deleted?</h2>
+    <ul>
+      <li><strong>Firebase Auth Account:</strong> Permanently deleted.</li>
+      <li><strong>User Profile:</strong> <code>users/{uid}</code> document marked deleted and anonymized.</li>
+      <li><strong>Push Notification Tokens:</strong> FCM tokens deleted from Firestore database.</li>
+      <li><strong>Background Location Watcher:</strong> Tracking task and local async state cleared.</li>
+      <li><strong>Trip Membership:</strong> UID removed from active member lists.</li>
+    </ul>
+
+    <div class="footer">
+      &copy; 2026 TripTrack. All rights reserved. | Contact Support: support@triptrack.app
+    </div>
+  </div>
+</body>
+</html>
