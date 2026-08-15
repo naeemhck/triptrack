@@ -14,6 +14,15 @@ All notable changes to TripTrack are documented here.
 - Email/password, Magic Link, and password-reset authentication flows.
 - Expo-compatible Jest, ESLint, CI, and dependency update automation.
 - Component-level tests for trip cards, member route status, and background permission choices.
+- Shared Zod validation at authentication, invite, and trip-creation boundaries.
+- Optional privacy-safe Sentry diagnostics for fatal, offline-sync, stop-detection, and location errors.
+- State-machine and Trip Detail presentation coverage with enforced 75% global thresholds.
+- Supabase auth and trip service contract tests for normalized inputs and RPC boundaries.
+
+### Changed
+
+- Split Trip Detail presentation, runtime synchronization, and styles into focused modules below 500 lines.
+- Run static analysis and coverage as separate CI jobs and retain LCOV reports.
 
 ### Security
 

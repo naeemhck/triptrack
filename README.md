@@ -11,6 +11,7 @@ TripTrack is an Expo/React Native application for private group trips. Members s
 - **Maps:** MapLibre/OpenFreeMap by default, with an optional Google Maps provider.
 - **Notifications:** Expo Push Service with Android delivery through Firebase Cloud Messaging. No Firebase database or Cloud Functions backend is used.
 - **Reliability:** Application-owned photo storage and a serialized AsyncStorage write-ahead queue with stable IDs, leases, bounded backoff, and replay-safe server operations.
+- **Diagnostics:** Privacy-safe structured error reporting through Sentry when an optional DSN is configured; disabled otherwise.
 
 ## Prerequisites
 
@@ -35,6 +36,7 @@ Fill `.env` with your project values. Never commit this file.
 | `EXPO_PUBLIC_SUPABASE_URL`                | Yes                 | Supabase project URL from Project Settings > API.                       |
 | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`    | Yes                 | Publishable client key. Never use the service-role key in the app.      |
 | `EXPO_PUBLIC_EAS_PROJECT_ID`              | Push builds         | Expo project ID used to obtain an Expo push token.                      |
+| `EXPO_PUBLIC_SENTRY_DSN`                  | Optional            | Public Sentry DSN for production crash reporting.                       |
 | `GOOGLE_SERVICES_JSON`                    | Android push builds | Local path or EAS file secret containing the Android FCM configuration. |
 | `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY` | Optional            | Restricted Android Maps SDK key when selecting Google Maps.             |
 | `EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY`     | Optional            | Restricted iOS Maps SDK key when selecting Google Maps.                 |
@@ -58,9 +60,9 @@ npx expo install --check
 npx expo-doctor
 ```
 
-`npm run verify` runs Prettier, TypeScript, ESLint, and 50 Jest assertions with coverage. CI executes the same checks on every pull request and push to `master`.
+`npm run verify` runs Prettier, TypeScript, ESLint, and 96 Jest assertions with coverage. Coverage enforcement includes Trip Detail presentation, location tracking, automatic stop detection, the offline queue, Supabase auth/trip contracts, validation boundaries, data mappers, and shared utilities.
 
-CI also fails on critical production dependency advisories. Expo SDK upgrades remain compatibility-controlled through `expo install --check` and Dependabot rather than forced npm major-version rewrites.
+CI runs static analysis and coverage tests as independent jobs, retains the LCOV report, and fails on critical production dependency advisories. Expo SDK upgrades remain compatibility-controlled through `expo install --check` and Dependabot rather than forced npm major-version rewrites.
 
 Database tests are transactional pgTAP files:
 
@@ -83,6 +85,8 @@ npx supabase db lint --linked --schema public
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for change and review requirements and [CODEX_HANDOFF.md](CODEX_HANDOFF.md) for the current release-readiness state.
+
+Sentry is optional at runtime. Creating a Sentry project and configuring `EXPO_PUBLIC_SENTRY_DSN` enables event delivery; source-map upload credentials must be stored only in the EAS or CI secret store.
 
 ## License
 

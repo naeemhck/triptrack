@@ -32,4 +32,4 @@ Database changes must include a forward-only migration and transactional pgTAP c
 
 ## Commit Messages
 
-Use an imperative subject that describes the behavior, for example `Preserve uploaded photo state during retry`. Avoid mixing formatting, generated files, refactors, and product behavior in one commit.
+Use Conventional Commit subjects such as `fix: preserve uploaded photo state during retry`, `test: cover stop detector departure`, or `refactor: extract trip detail runtime`. Avoid mixing formatting, generated files, refactors, and product behavior in one commit.
