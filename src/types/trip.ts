@@ -36,3 +36,5 @@ export interface TripPreview {
   memberCount: number;
   members: TripMember[];
 }
+
+export type TripMemberFilter = 'all' | 'active' | 'inactive';

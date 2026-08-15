@@ -81,6 +81,7 @@
       "src/components/location/BackgroundPermissionModal.tsx",
       "src/components/trip/MemberRow.tsx",
       "src/components/trip/TripCard.tsx",
+      "src/screens/main/TripDetailView.tsx",
       "src/services/backgroundLocation.ts",
       "src/services/offlineSyncQueue.ts",
       "src/services/stopDetector.ts",
