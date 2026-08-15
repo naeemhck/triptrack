@@ -10,108 +10,40 @@
  * NOTE: Administrative actions require network connectivity.
  */
 
-import { doc, updateDoc, writeBatch, arrayRemove, getDoc } from 'firebase/firestore';
-import { db, isMockFirebase } from '../config/firebase';
 import { cleanupActiveTripState } from './backgroundLocation';
+import { removeMember, runTripRpc } from './supabase/trips';
+import { devLog } from '../utils/devLog';
 
 /**
  * Start a Planned Trip (Organizer only)
  */
 export const startTrip = async (tripId: string, currentUid: string): Promise<void> => {
-  if (isMockFirebase) {
-    console.log(`[Mock] Started trip ${tripId}`);
-    return;
-  }
+  void currentUid;
+  await runTripRpc('start_trip', tripId);
 
-  const tripRef = doc(db, 'trips', tripId);
-  const tripSnap = await getDoc(tripRef);
-  if (!tripSnap.exists()) {
-    throw new Error('Trip does not exist.');
-  }
-
-  const tripData = tripSnap.data();
-  if (tripData.createdBy !== currentUid) {
-    throw new Error('Only the trip organizer can start this trip.');
-  }
-
-  if (tripData.status === 'completed') {
-    throw new Error('Completed trips cannot be restarted.');
-  }
-
-  await updateDoc(tripRef, {
-    status: 'active',
-    startedAt: Date.now(),
-  });
-
-  console.log(`🚀 [Lifecycle] Started trip ${tripId}`);
+  devLog(`🚀 [Lifecycle] Started trip ${tripId}`);
 };
 
 /**
  * End an Active Trip (Organizer only)
  */
 export const endTrip = async (tripId: string, currentUid: string): Promise<void> => {
-  if (isMockFirebase) {
-    console.log(`[Mock] Ended trip ${tripId}`);
-    await cleanupActiveTripState(tripId, currentUid);
-    return;
-  }
-
-  const tripRef = doc(db, 'trips', tripId);
-  const tripSnap = await getDoc(tripRef);
-  if (!tripSnap.exists()) {
-    throw new Error('Trip does not exist.');
-  }
-
-  const tripData = tripSnap.data();
-  if (tripData.createdBy !== currentUid) {
-    throw new Error('Only the trip organizer can end this trip.');
-  }
-
-  await updateDoc(tripRef, {
-    status: 'completed',
-    endedAt: Date.now(),
-  });
+  await runTripRpc('end_trip', tripId);
 
   // Local device cleanup
   await cleanupActiveTripState(tripId, currentUid);
-  console.log(`🏁 [Lifecycle] Ended trip ${tripId}`);
+  devLog(`🏁 [Lifecycle] Ended trip ${tripId}`);
 };
 
 /**
  * Leave a Trip (Non-organizer member)
  */
 export const leaveTrip = async (tripId: string, currentUid: string): Promise<void> => {
-  if (isMockFirebase) {
-    console.log(`[Mock] User ${currentUid} left trip ${tripId}`);
-    await cleanupActiveTripState(tripId, currentUid);
-    return;
-  }
-
-  const tripRef = doc(db, 'trips', tripId);
-  const tripSnap = await getDoc(tripRef);
-  if (!tripSnap.exists()) {
-    throw new Error('Trip does not exist.');
-  }
-
-  const tripData = tripSnap.data();
-  if (tripData.createdBy === currentUid) {
-    if (tripData.status === 'active') {
-      throw new Error('End the trip before leaving.');
-    }
-  }
-
-  // Atomic batch write for denormalized membership
-  const batch = writeBatch(db);
-  batch.update(tripRef, {
-    memberIds: arrayRemove(currentUid),
-  });
-  batch.delete(doc(db, 'trips', tripId, 'members', currentUid));
-
-  await batch.commit();
+  await runTripRpc('leave_trip', tripId);
 
   // Local device cleanup
   await cleanupActiveTripState(tripId, currentUid);
-  console.log(`👋 [Lifecycle] User ${currentUid} left trip ${tripId}`);
+  devLog(`👋 [Lifecycle] User ${currentUid} left trip ${tripId}`);
 };
 
 /**
@@ -122,33 +54,7 @@ export const removeTripMember = async (
   organizerUid: string,
   targetMemberUid: string
 ): Promise<void> => {
-  if (isMockFirebase) {
-    console.log(`[Mock] Organizer removed member ${targetMemberUid} from trip ${tripId}`);
-    return;
-  }
-
-  const tripRef = doc(db, 'trips', tripId);
-  const tripSnap = await getDoc(tripRef);
-  if (!tripSnap.exists()) {
-    throw new Error('Trip does not exist.');
-  }
-
-  const tripData = tripSnap.data();
-  if (tripData.createdBy !== organizerUid) {
-    throw new Error('Only the trip organizer can remove members.');
-  }
-
-  if (targetMemberUid === organizerUid) {
-    throw new Error('Organizers cannot remove themselves. End the trip instead.');
-  }
-
-  // Atomic batch write for denormalized membership
-  const batch = writeBatch(db);
-  batch.update(tripRef, {
-    memberIds: arrayRemove(targetMemberUid),
-  });
-  batch.delete(doc(db, 'trips', tripId, 'members', targetMemberUid));
-
-  await batch.commit();
-  console.log(`🛑 [Lifecycle] Organizer removed member ${targetMemberUid} from trip ${tripId}`);
+  void organizerUid;
+  await removeMember(tripId, targetMemberUid);
+  devLog(`🛑 [Lifecycle] Organizer removed member ${targetMemberUid} from trip ${tripId}`);
 };

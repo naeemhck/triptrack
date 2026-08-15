@@ -1,38 +1,40 @@
-# CODEX_HANDOFF.md — TripTrack Handoff Summary
+# TripTrack Handoff
 
-## 1. What Is Completed
-- **Steps 1–11 MVP Product Development:** Complete and fully verified.
-- **Step 12 Production Hardening & Release Readiness:** Complete.
-- **Expo SDK 54 Upgrade:** Upgraded from Expo SDK 53 to Expo SDK 54 (`expo@~54.0.0`, React Native `0.81.5`, React `19.1.0`, `babel-preset-expo@~54.0.0`).
-- **Android Compatibility Matrix:** Configured and validated for Android 12 minimum (`minSdkVersion = 31`), Android 16 target (`targetSdkVersion = 36`), and compile SDK 36.
-- **Native Android Build Verification:**
-  - `app-release.aab` generated at `android/app/build/outputs/bundle/release/app-release.aab` (~30.0 MB).
-  - `app-release.apk` generated at `android/app/build/outputs/apk/release/app-release.apk` (~75.4 MB).
-  - Built with OpenJDK 21 LTS (`C:\Users\Naeem\.jdks\jdk-21`) and Android NDK r27b (`27.1.12297006`).
-- **Cloud Functions:** Upgraded `functions/package.json` to Node.js 22 runtime; TypeScript build clean (`0 errors`).
-- **Security Rules:** `storage.rules` audited to strictly adhere to the 2-Firestore lookup limit (`isStopOwner`). `firestore.rules` audited for active trip status enforcement.
-- **Privacy & Compliance Web Pages:** Created `public/privacy.html` (Privacy Policy) and `public/deletion.html` (Google Play Account Deletion compliance page).
+## Current Architecture
 
-## 2. Current Firebase Setup Status
-- Configuration file `src/config/firebase.ts` correctly loads environment variables via `process.env.EXPO_PUBLIC_FIREBASE_*`.
-- Fallbacks to isolated demo configuration (`isMockFirebase`) when `.env` keys are omitted.
-- Firebase Auth initialization uses standard `getReactNativePersistence(AsyncStorage)` via `firebase/auth`.
+- Expo SDK 54, React Native 0.81.5, React 19.1.0, TypeScript 5.9.
+- Supabase Auth, Postgres, Realtime, Storage, Vault, Cron, and Edge Functions.
+- MapLibre with OpenFreeMap is the active zero-billing map provider. Google Maps remains an externally configured optional provider.
+- Android package: `com.triptrack.app`; min SDK 31, target/compile SDK 36.
+- The native Android project is intentionally committed. Expo Doctor's app-config sync warning is disabled only after manually verifying the generated manifest, resources, permissions, deep links, and icon configuration.
 
-## 3. Remaining Configuration & Release Work
-- **Live Firebase Deployment:** Deploy Security Rules (`firebase deploy --only firestore:rules,storage`) and Cloud Functions (`firebase deploy --only functions`) to the production Firebase project.
-- **Google Play Console Upload:** Upload `android/app/build/outputs/bundle/release/app-release.aab` to Google Play Console (Internal Testing / Closed Testing track).
-- **Apple App Store Submission:** Execute `eas build --platform ios` or Xcode build if submitting to TestFlight / App Store.
+## Completed
 
-## 4. Known Defects or Blockers
-- **P0 / P1 Blockers:** None. Zero critical blockers exist.
-- **P3 Minor Notes:** Simulator mock location simulation requires manual GPS toggling in Dev Menu (standard Expo emulator behavior).
+- Email/password, Magic Link, password reset, native deep links, and persisted sessions.
+- Trip lifecycle, membership, live/background location, offline queue, durable stop photos, and account deletion function.
+- Canonical Route Leader route, authoritative separation, warning/critical hysteresis, leader transfer, and realtime UI.
+- Stop, stale-location, and route-lag push functions with authenticated infrastructure invocation and idempotent delivery claims.
+- Per-member, per-trip push preferences for warning, critical, stop, and stale-location notifications. Missing rows default to enabled.
+- RLS, Storage policies, pg_net stop trigger, 15-minute stale-location Cron, and notification secret storage in Vault.
+- Production icon assets and Android adaptive launcher resources.
+- All 23 canonical leader-route pgTAP tests passed on the QA Supabase project.
+- Two-device route progress and a 200 m warning delivery/tap were validated during physical-device QA.
 
-## 5. Important Files Codex Should Inspect
-- `AGENTS.md`: Technical stack, toolchain commands, and architectural constraints.
-- `package.json`: Dependency versions and scripts.
-- `app.json`: Expo configuration, native plugins, permissions, and build properties (`minSdk: 31`, `targetSdk: 36`, `compileSdk: 36`).
-- `android/gradle.properties`: Native Android SDK configuration and edge-to-edge flags.
-- `firestore.rules` & `storage.rules`: Security rules for database and photo storage.
-- `src/config/firebase.ts`: Firebase client initialization & persistence setup.
-- `public/privacy.html` & `public/deletion.html`: Required privacy and account deletion pages.
-- `android/app/build/outputs/bundle/release/app-release.aab`: Production release bundle.
+## Required Before Release Build
+
+1. Run the final TypeScript and Expo validation commands after the last changes.
+2. Run `supabase/tests/notification_preferences.test.sql` against the linked QA project and confirm all tests pass.
+3. Complete two-device preference QA: disable each category for one member and verify only that trip/category is suppressed while in-app warning/critical state remains visible.
+4. Confirm production Supabase public configuration and optional Google Maps key are provided through the release environment without committing secrets.
+5. Back up the private upload keystore and user-level Gradle signing properties to a secure password manager or encrypted offline location. The local release variant is configured and verified.
+6. Publish and confirm the public Privacy Policy and Account Deletion URLs used for store submission.
+7. Increment `versionCode` for every subsequent Play upload.
+
+## Release Safety
+
+- Release builds do not use `android/app/debug.keystore`.
+- The upload keystore is stored at `C:/Users/Naeem/.triptrack-signing/triptrack-upload.jks`; its credentials are stored in the user-level Gradle properties file and must never be copied into the repository.
+- Never commit Supabase service-role keys, Vault secrets, signing files, passwords, or production credentials.
+- Provide Android FCM configuration through `GOOGLE_SERVICES_JSON`; the project-specific file is intentionally excluded from Git history.
+- Do not run Firebase deployment commands; Firebase is no longer the application backend.
+- Do not build or upload a production artifact until final QA and signing configuration are complete.

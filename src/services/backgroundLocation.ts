@@ -57,8 +57,8 @@
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { doc, setDoc } from 'firebase/firestore';
-import { db, isMockFirebase } from '../config/firebase';
+import { supabase } from '../config/supabase';
+import { devLog } from '../utils/devLog';
 import { processLocationForStopDetection, clearStopDetectorState } from './stopDetector';
 import {
   enqueueLocation,
@@ -77,6 +77,7 @@ export interface ActiveBgTripInfo {
   displayName: string;
   avatar?: string;
   tripName?: string;
+  routeLeaderUserId?: string;
 }
 
 // Task execution context outside React component tree
@@ -96,24 +97,32 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) =>
       if (!rawTripInfo) return;
 
       const tripInfo: ActiveBgTripInfo = JSON.parse(rawTripInfo);
-      const { tripId, uid, displayName, avatar } = tripInfo;
+      const { tripId, uid, displayName, avatar, routeLeaderUserId } = tripInfo;
 
       if (!tripId || !uid) return;
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session?.user.id !== uid) {
+        await AsyncStorage.removeItem(ASYNC_BG_TRIP_KEY);
+        if (await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK)) {
+          await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+        }
+        return;
+      }
 
       // Write-Ahead Queue: Enqueue coalesced location sample locally first
       const sampledAt = location.timestamp || Date.now();
       await enqueueLocation(tripId, uid, {
         lat: latitude,
         lng: longitude,
-        accuracy: accuracy || undefined,
+        accuracy: accuracy ?? undefined,
         displayName,
         avatar: avatar || '',
         sharingEnabled: true,
         sampledAt,
-      });
+      }, routeLeaderUserId === uid);
 
       // Trigger sync worker to flush queue if network is available
-      processPendingSyncQueue(uid);
+      void processPendingSyncQueue(uid);
 
       // Run automatic stop dwell-time detector
       await processLocationForStopDetection(tripId, uid, displayName, latitude, longitude, accuracy);
@@ -134,20 +143,30 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) =>
  * expo-location handles the two-step sequence via separate
  * requestForegroundPermissionsAsync() and requestBackgroundPermissionsAsync() calls.
  */
-export const checkLocationPermissionsStatus = async (): Promise<PermissionState> => {
-  try {
-    const fg = await Location.getForegroundPermissionsAsync();
-    if (fg.status !== 'granted') return 'denied';
+let permissionStatusRequest: Promise<PermissionState> | null = null;
 
-    const bg = await Location.getBackgroundPermissionsAsync();
-    if (bg.status === 'granted') {
-      return 'granted-always';
+export const checkLocationPermissionsStatus = (): Promise<PermissionState> => {
+  if (permissionStatusRequest) return permissionStatusRequest;
+
+  permissionStatusRequest = (async () => {
+    try {
+      const fg = await Location.getForegroundPermissionsAsync();
+      if (fg.status !== 'granted') return 'denied';
+
+      const bg = await Location.getBackgroundPermissionsAsync();
+      if (bg.status === 'granted') {
+        return 'granted-always';
+      }
+      return 'granted-foreground-only';
+    } catch (err) {
+      console.error('Error checking location permissions:', err);
+      return 'denied';
+    } finally {
+      permissionStatusRequest = null;
     }
-    return 'granted-foreground-only';
-  } catch (err) {
-    console.error('Error checking location permissions:', err);
-    return 'denied';
-  }
+  })();
+
+  return permissionStatusRequest;
 };
 
 /**
@@ -177,7 +196,8 @@ export const isBackgroundTrackingRunning = async (): Promise<boolean> => {
 export const startBackgroundLocationTracking = async (
   tripId: string,
   user: { uid: string; name?: string; avatar?: string },
-  tripName: string = 'Active Trip'
+  tripName: string = 'Active Trip',
+  routeLeaderUserId?: string
 ): Promise<PermissionState> => {
   const permState = await checkLocationPermissionsStatus();
 
@@ -188,6 +208,7 @@ export const startBackgroundLocationTracking = async (
     displayName: user.name || 'Traveler',
     avatar: user.avatar,
     tripName,
+    routeLeaderUserId,
   };
   await AsyncStorage.setItem(ASYNC_BG_TRIP_KEY, JSON.stringify(activeInfo));
 
@@ -206,7 +227,7 @@ export const startBackgroundLocationTracking = async (
           notificationColor: '#14B8A6',
         },
       });
-      console.log(`🚀 [Background Location] Task started for trip.`);
+      devLog(`🚀 [Background Location] Task started for trip.`);
     }
   }
 
@@ -223,10 +244,11 @@ export const stopBackgroundLocationTracking = async (): Promise<void> => {
     const isRunning = await isBackgroundTrackingRunning();
     if (isRunning) {
       await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-      console.log('🛑 [Background Location] Task stopped cleanly.');
+      devLog('🛑 [Background Location] Task stopped cleanly.');
     }
   } catch (err) {
     console.error('Error stopping background location updates:', err);
+    throw new Error('Unable to stop background location tracking.');
   }
 };
 
@@ -246,7 +268,7 @@ export const cleanupActiveTripState = async (tripId: string, currentUid?: string
     if (currentUid) {
       await clearTripQueueForUser(tripId, currentUid);
     }
-    console.log(`🧹 [Cleanup] Cleaned active local state for trip.`);
+    devLog(`🧹 [Cleanup] Cleaned active local state for trip.`);
   } catch (err) {
     console.error('Error cleaning up active trip state:', err);
   }

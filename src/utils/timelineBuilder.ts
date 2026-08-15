@@ -1,7 +1,7 @@
 /**
  * TripTrack Timeline Builder Utility
  * 
- * Derives a clean chronological timeline from existing durable Firestore models:
+ * Derives a clean chronological timeline from existing durable Supabase models:
  * - Trip metadata (`startedAt`, `endedAt`, `name`)
  * - Trip stops (`createdAt` arrival, `departedAt` departure, `name`, `note`, `photoUrl`, `type`)
  */
@@ -32,7 +32,7 @@ export const buildTripTimeline = (trip: Trip, stops: TripStop[]): TimelineEvent[
       id: `started_${trip.id}_${trip.startedAt}`,
       type: 'trip_started',
       timestamp: trip.startedAt,
-      title: 'Trip Started 🚀',
+      title: 'Trip started',
       subtitle: `Organizer started "${trip.name}"`,
       badge: 'Start',
     });
@@ -41,7 +41,7 @@ export const buildTripTimeline = (trip: Trip, stops: TripStop[]): TimelineEvent[
       id: `created_${trip.id}_${trip.createdAt}`,
       type: 'trip_started',
       timestamp: trip.createdAt,
-      title: 'Trip Created 📝',
+      title: 'Trip created',
       subtitle: `Trip "${trip.name}" created`,
       badge: 'Created',
     });
@@ -57,8 +57,8 @@ export const buildTripTimeline = (trip: Trip, stops: TripStop[]): TimelineEvent[
       type: 'stop_arrival',
       timestamp: stop.createdAt,
       title: stop.name,
-      subtitle: `Marked by ${stop.displayName}`,
-      badge: isAuto ? '🤖 Auto Stop' : '🚩 Manual Stop',
+      subtitle: isAuto ? `Detected for ${stop.displayName}` : `Marked by ${stop.displayName}`,
+      badge: isAuto ? 'Automatic stop' : 'Manual stop',
       note: stop.note,
       photoUrl: stop.photoUrl,
       stop,
@@ -73,7 +73,7 @@ export const buildTripTimeline = (trip: Trip, stops: TripStop[]): TimelineEvent[
         timestamp: stop.departedAt,
         title: `Departed ${stop.name}`,
         subtitle: `Stay duration: ${stayDurationMins} minute${stayDurationMins === 1 ? '' : 's'}`,
-        badge: '🚗 Departed',
+        badge: 'Departure',
         stop,
       });
     }
@@ -86,7 +86,7 @@ export const buildTripTimeline = (trip: Trip, stops: TripStop[]): TimelineEvent[
       id: `completed_${trip.id}_${endedTime}`,
       type: 'trip_completed',
       timestamp: endedTime,
-      title: 'Trip Completed 🏁',
+      title: 'Trip completed',
       subtitle: 'All members finished sharing location',
       badge: 'Completed',
     });

@@ -12,6 +12,7 @@ export interface Trip {
   status?: TripStatus;
   startedAt?: number;
   endedAt?: number;
+  routeLeaderUserId?: string;
 }
 
 export interface TripMember {
@@ -20,6 +21,7 @@ export interface TripMember {
   avatar?: string;
   joinedAt: number;
   sharingEnabled: boolean;
+  sharingMode?: 'always' | 'foreground' | 'off';
   lastSeenAt?: number;
 }
 

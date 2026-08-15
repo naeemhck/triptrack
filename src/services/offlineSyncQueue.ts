@@ -7,17 +7,21 @@
  * KEY FEATURES:
  * 1. Operation Types: `latest_location`, `manual_stop`, `auto_stop`, `stop_update`, `stop_photo`
  * 2. Coalesced Live Location: Keyed by `tripId + uid` (1 pending sample per trip/user; newest sample replaces older)
- * 3. Stable Stop IDs: Idempotent Firestore setDoc(..., { merge: true })
+ * 3. Stable Stop IDs: Idempotent Supabase upserts keyed by UUID
  * 4. Photo Durability & JPEG Normalization: Photos copied to app document directory before queueing; partial success handling
  * 5. Serialized Mutations & Crash Lease Recovery: Mutex lock for queue mutations; processing leases expire after 60s
  * 6. Bounded Exponential Backoff: Initial 5s, max 5m, max 10 attempts before `manual_retry_required`
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage, isMockFirebase } from '../config/firebase';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as Crypto from 'expo-crypto';
 import { TripStop, MemberLocation } from '../types/location';
+import { upsertLocation } from './supabase/locations';
+import { stopPhotoPath, uploadStopPhoto } from './supabase/photos';
+import { assertStopExistsOwned, updateStop, upsertStop } from './supabase/stops';
+import { devLog, devWarn } from '../utils/devLog';
 
 export const ASYNC_QUEUE_KEY = '@triptrack_offline_sync_queue';
 export const LEASE_DURATION_MS = 60 * 1000; // 60s lease timeout for standard operations
@@ -26,9 +30,11 @@ export const SYNC_INITIAL_RETRY_MS = 5000; // 5s
 export const SYNC_MAX_RETRY_MS = 5 * 60 * 1000; // 5m
 export const MAX_ATTEMPTS = 10;
 export const MAX_PENDING_PHOTOS = 20; // Retention safety limit for queued photos
+const PENDING_MEDIA_DIRECTORY = `${FileSystem.documentDirectory}triptrack-pending-media/`;
 
 export type OfflineOperationType =
   | 'latest_location'
+  | 'leader_route_sample'
   | 'manual_stop'
   | 'auto_stop'
   | 'stop_update'
@@ -108,7 +114,7 @@ export const getOfflineQueue = async (): Promise<OfflineSyncItem[]> => {
 
     const cleaned = queue.map((item) => {
       if (item.status === 'processing' && item.leaseExpiresAt && now > item.leaseExpiresAt) {
-        console.log(`⏳ [Sync Queue] Reclaimed expired processing lease for item ${item.id}`);
+        devLog(`⏳ [Sync Queue] Reclaimed expired processing lease for item ${item.id}`);
         modified = true;
         return {
           ...item,
@@ -131,11 +137,13 @@ export const getOfflineQueue = async (): Promise<OfflineSyncItem[]> => {
 export const enqueueLocation = async (
   tripId: string,
   uid: string,
-  locationData: Partial<MemberLocation> & { sampledAt?: number }
+  locationData: Partial<MemberLocation> & { sampledAt?: number },
+  isRouteLeader = false
 ): Promise<void> => {
   return runSerializedMutation(async (queue) => {
     const now = Date.now();
     const itemId = `loc_${tripId}_${uid}`;
+    const sampleId = Crypto.randomUUID();
 
     // Filter out existing location item for this tripId + uid
     const filtered = queue.filter((item) => item.id !== itemId);
@@ -152,12 +160,19 @@ export const enqueueLocation = async (
       status: 'pending',
       payload: {
         ...locationData,
+        sampleId,
         sampledAt: locationData.sampledAt || now,
       },
     };
 
-    console.log(`📥 [Sync Queue] Coalesced live location for user ${uid} on trip ${tripId}`);
-    return { updatedQueue: [...filtered, newItem], result: undefined };
+    devLog(`📥 [Sync Queue] Coalesced live location for user ${uid} on trip ${tripId}`);
+    if (!isRouteLeader) return { updatedQueue: [...filtered, newItem], result: undefined };
+    const routeItem: OfflineSyncItem = {
+      ...newItem,
+      id: `route_${tripId}_${sampleId}`,
+      operationType: 'leader_route_sample',
+    };
+    return { updatedQueue: [...filtered, newItem, routeItem], result: undefined };
   });
 };
 
@@ -199,7 +214,7 @@ export const enqueueStop = async (
       updatedQueue = [...queue, itemData];
     }
 
-    console.log(`📥 [Sync Queue] Enqueued ${operationType} "${stopData.name}" (${stopData.id})`);
+    devLog(`📥 [Sync Queue] Enqueued ${operationType} "${stopData.name}" (${stopData.id})`);
     return { updatedQueue, result: undefined };
   });
 };
@@ -224,7 +239,7 @@ export const enqueueStopUpdate = async (
       const mergedPayload = { ...parentItem.payload, ...updateFields };
       const updatedQueue = [...queue];
       updatedQueue[parentIndex] = { ...parentItem, payload: mergedPayload };
-      console.log(`📥 [Sync Queue] Merged stop_update directly into queued stop ${stopId}`);
+      devLog(`📥 [Sync Queue] Merged stop_update directly into queued stop ${stopId}`);
       return { updatedQueue, result: undefined };
     }
 
@@ -242,7 +257,7 @@ export const enqueueStopUpdate = async (
       payload: { stopId, ...updateFields },
     };
 
-    console.log(`📥 [Sync Queue] Enqueued stop_update for stop ${stopId}`);
+    devLog(`📥 [Sync Queue] Enqueued stop_update for stop ${stopId}`);
     return { updatedQueue: [...queue, updateItem], result: undefined };
   });
 };
@@ -256,12 +271,21 @@ export const enqueueStopPhoto = async (
   stopId: string,
   localPhotoUri: string
 ): Promise<void> => {
-  return runSerializedMutation(async (queue) => {
-    const pendingPhotoCount = queue.filter((i) => i.operationType === 'stop_photo').length;
-    if (pendingPhotoCount >= MAX_PENDING_PHOTOS) {
-      console.warn(`⚠️ [Sync Queue] Pending photo limit (${MAX_PENDING_PHOTOS}) reached. Deferring new photo queuing.`);
-      throw new Error("Photo can't be queued until pending uploads sync.");
-    }
+  await FileSystem.makeDirectoryAsync(PENDING_MEDIA_DIRECTORY, { intermediates: true });
+  const normalized = await ImageManipulator.manipulateAsync(localPhotoUri, [], {
+    compress: 0.85,
+    format: ImageManipulator.SaveFormat.JPEG,
+  });
+  const durablePhotoUri = `${PENDING_MEDIA_DIRECTORY}${stopId}.jpg`;
+  await FileSystem.copyAsync({ from: normalized.uri, to: durablePhotoUri });
+
+  try {
+    return await runSerializedMutation(async (queue) => {
+      const pendingPhotoCount = queue.filter((i) => i.operationType === 'stop_photo').length;
+      if (pendingPhotoCount >= MAX_PENDING_PHOTOS) {
+        devWarn(`⚠️ [Sync Queue] Pending photo limit (${MAX_PENDING_PHOTOS}) reached. Deferring new photo queuing.`);
+        throw new Error("Photo can't be queued until pending uploads sync.");
+      }
 
     const now = Date.now();
     const itemId = `photo_${stopId}`;
@@ -275,13 +299,17 @@ export const enqueueStopPhoto = async (
       attempts: 0,
       nextRetryAt: now,
       status: 'pending',
-      localPhotoUri,
-      payload: { stopId, photoUploaded: false, photoUrl: null },
+      localPhotoUri: durablePhotoUri,
+      payload: { stopId, photoUploaded: false, remotePath: null },
     };
 
-    console.log(`📥 [Sync Queue] Enqueued stop_photo for stop ${stopId}`);
-    return { updatedQueue: [...queue, photoItem], result: undefined };
-  });
+      devLog(`📥 [Sync Queue] Enqueued stop_photo for stop ${stopId}`);
+      return { updatedQueue: [...queue, photoItem], result: undefined };
+    });
+  } catch (error) {
+    await FileSystem.deleteAsync(durablePhotoUri, { idempotent: true });
+    throw error;
+  }
 };
 
 /**
@@ -291,7 +319,8 @@ export const clearTripQueueForUser = async (tripId: string, uid: string): Promis
   return runSerializedMutation(async (queue) => {
     // Cancel transient live_location items for departed trip; retain durable manual stops in conflict state if needed
     const updated = queue.filter(
-      (item) => !(item.tripId === tripId && item.uid === uid && item.operationType === 'latest_location')
+      (item) => !(item.tripId === tripId && item.uid === uid &&
+        (item.operationType === 'latest_location' || item.operationType === 'leader_route_sample'))
     );
     return { updatedQueue: updated, result: undefined };
   });
@@ -303,75 +332,63 @@ export const clearTripQueueForUser = async (tripId: string, uid: string): Promis
 const syncSingleItem = async (item: OfflineSyncItem, currentUid: string): Promise<boolean> => {
   // Validate ownership
   if (item.uid !== currentUid) {
-    console.log(`⚠️ [Sync Queue] User mismatch for item ${item.id} (item uid: ${item.uid}, current uid: ${currentUid}). Skipping.`);
+    devLog(`⚠️ [Sync Queue] User mismatch for item ${item.id} (item uid: ${item.uid}, current uid: ${currentUid}). Skipping.`);
     return false;
   }
 
   const { operationType, tripId, payload, localPhotoUri } = item;
 
-  if (isMockFirebase) {
-    console.log(`[Mock Sync] Replayed ${operationType} ${item.id} successfully.`);
+  if (operationType === 'latest_location') {
+    await upsertLocation(tripId, item.uid, {
+      ...payload,
+      sampledAt: item.sampledAt || payload.sampledAt || Date.now(),
+    }, payload.sampleId, false);
     return true;
   }
 
-  if (operationType === 'latest_location') {
-    // Write coalesced location sample
-    await setDoc(doc(db, 'trips', tripId, 'locations', item.uid), {
-      uid: item.uid,
-      lat: payload.lat,
-      lng: payload.lng,
-      accuracy: payload.accuracy,
+  if (operationType === 'leader_route_sample') {
+    await upsertLocation(tripId, item.uid, {
+      ...payload,
       sampledAt: item.sampledAt || payload.sampledAt || Date.now(),
-      updatedAt: Date.now(),
-      displayName: payload.displayName || 'Traveler',
-      avatar: payload.avatar || '',
-      sharingEnabled: payload.sharingEnabled !== false,
-    }, { merge: true });
+    }, payload.sampleId, true);
     return true;
   }
 
   if (operationType === 'manual_stop' || operationType === 'auto_stop') {
-    // Idempotent stop write
-    await setDoc(doc(db, 'trips', tripId, 'stops', payload.id), {
-      ...payload,
-      createdAt: payload.createdAt || Date.now(),
-    }, { merge: true });
+    await upsertStop(tripId, payload as TripStop);
     return true;
   }
 
   if (operationType === 'stop_update') {
     // Update existing stop
     const { stopId, ...fields } = payload;
-    await updateDoc(doc(db, 'trips', tripId, 'stops', stopId), fields);
+    await updateStop(tripId, stopId, fields);
     return true;
   }
 
   if (operationType === 'stop_photo') {
     const stopId = payload.stopId;
-    let photoUrl = payload.photoUrl;
+    let remotePath = payload.remotePath as string | null;
+
+    // The binary is secondary to the canonical stop and must never race it.
+    await assertStopExistsOwned(tripId, stopId, item.uid);
 
     // Partial success recovery: if Storage upload hasn't succeeded yet, upload photo
     if (!payload.photoUploaded && localPhotoUri) {
-      console.log(`📤 [Sync Queue] Uploading photo for stop ${stopId}...`);
-      const response = await fetch(localPhotoUri);
-      const blob = await response.blob();
-      const storagePath = `trips/${tripId}/stops/${stopId}/photo.jpg`;
-      const storageRef = ref(storage, storagePath);
-
-      await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
-      photoUrl = await getDownloadURL(storageRef);
-
-      // Update payload in memory to mark photoUploaded: true before Firestore write
-      payload.photoUploaded = true;
-      payload.photoUrl = photoUrl;
+      devLog(`📤 [Sync Queue] Uploading photo for stop ${stopId}...`);
+      remotePath = stopPhotoPath(tripId, stopId);
+      await uploadStopPhoto(remotePath, localPhotoUri);
+      await runSerializedMutation(async (queue) => ({
+        updatedQueue: queue.map((queued) => queued.id === item.id
+          ? { ...queued, payload: { ...queued.payload, photoUploaded: true, remotePath } }
+          : queued),
+        result: undefined,
+      }));
     }
 
-    // Attach photoUrl to parent stop in Firestore
-    if (photoUrl) {
-      await updateDoc(doc(db, 'trips', tripId, 'stops', stopId), {
-        photoUrl,
-      });
-    }
+    if (!remotePath) throw new Error('Uploaded photo is missing its remote path.');
+    await updateStop(tripId, stopId, { photoPath: remotePath });
+    if (localPhotoUri) await FileSystem.deleteAsync(localPhotoUri, { idempotent: true });
     return true;
   }
 
@@ -384,7 +401,7 @@ const syncSingleItem = async (item: OfflineSyncItem, currentUid: string): Promis
  */
 export const processPendingSyncQueue = async (currentUid?: string): Promise<void> => {
   if (isWorkerRunning) {
-    console.log('🔒 [Sync Queue] Sync worker already running. Skipping concurrent run.');
+    devLog('🔒 [Sync Queue] Sync worker already running. Skipping concurrent run.');
     return;
   }
 
@@ -400,6 +417,7 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
     const now = Date.now();
     const readyItems = queue.filter(
       (item) =>
+        (!currentUid || item.uid === currentUid) &&
         (item.status === 'pending' || item.status === 'failed') &&
         now >= item.nextRetryAt &&
         item.attempts < MAX_ATTEMPTS
@@ -410,15 +428,16 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
       return;
     }
 
-    console.log(`🔄 [Sync Queue Worker] Processing ${readyItems.length} ready queue items...`);
+    devLog(`🔄 [Sync Queue Worker] Processing ${readyItems.length} ready queue items...`);
 
     // Priority ordering: 1. latest_location, 2. manual_stop/auto_stop, 3. stop_update, 4. stop_photo
     const typePriority: Record<OfflineOperationType, number> = {
       latest_location: 1,
-      manual_stop: 2,
-      auto_stop: 2,
-      stop_update: 3,
-      stop_photo: 4,
+      leader_route_sample: 2,
+      manual_stop: 3,
+      auto_stop: 3,
+      stop_update: 4,
+      stop_photo: 5,
     };
 
     readyItems.sort((a, b) => typePriority[a.operationType] - typePriority[b.operationType]);
@@ -447,10 +466,15 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
             const remaining = q.filter((i) => i.id !== item.id);
             return { updatedQueue: remaining, result: undefined };
           });
-          console.log(`✅ [Sync Queue Worker] Item ${item.id} successfully synchronized.`);
+          devLog(`✅ [Sync Queue Worker] Item ${item.id} successfully synchronized.`);
         }
-      } catch (err: any) {
-        console.error(`❌ [Sync Queue Worker] Failed item ${item.id}:`, err.message);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err
+            ? String(err.message)
+            : String(err || 'Sync error');
+        devWarn(`[Sync Queue Worker] Deferred item ${item.id}: ${errorMessage}`);
 
         // Bounded exponential backoff
         const nextAttempts = item.attempts + 1;
@@ -469,7 +493,7 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
               attempts: nextAttempts,
               nextRetryAt: Date.now() + delay,
               status: nextStatus,
-              error: err.message || 'Sync error',
+              error: errorMessage,
               leaseExpiresAt: undefined,
             };
           }
@@ -478,7 +502,8 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
       }
     }
   } catch (globalErr) {
-    console.error('⚠️ [Sync Queue Worker] Global processor error:', globalErr);
+    const errorMessage = globalErr instanceof Error ? globalErr.message : String(globalErr || 'Sync error');
+    devWarn(`[Sync Queue Worker] Processor deferred: ${errorMessage}`);
   } finally {
     isWorkerRunning = false;
   }

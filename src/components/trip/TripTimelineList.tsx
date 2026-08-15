@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, Image, FlatList, TouchableOpacity } from 'react-native';
 import { TimelineEvent } from '../../utils/timelineBuilder';
 import { colors } from '../../theme/colors';
+import { Ionicons } from '@expo/vector-icons';
 
 interface TripTimelineListProps {
   events: TimelineEvent[];
@@ -12,7 +13,7 @@ export const TripTimelineList: React.FC<TripTimelineListProps> = ({ events, onSe
   if (!events || events.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>📜</Text>
+        <Ionicons name="time-outline" size={30} color={colors.textMuted} />
         <Text style={styles.emptyTitle}>No Timeline Events Yet</Text>
         <Text style={styles.emptySub}>Events will appear chronologically as stops are marked.</Text>
       </View>
@@ -25,21 +26,21 @@ export const TripTimelineList: React.FC<TripTimelineListProps> = ({ events, onSe
     const dateStr = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' });
     const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    let icon = '📌';
+    let icon: React.ComponentProps<typeof Ionicons>['name'] = 'pin-outline';
     let dotColor = colors.primary;
 
     if (item.type === 'trip_started') {
-      icon = '🚀';
+      icon = 'play-outline';
       dotColor = colors.success;
     } else if (item.type === 'trip_completed') {
-      icon = '🏁';
+      icon = 'checkmark-done-outline';
       dotColor = colors.secondary;
     } else if (item.type === 'stop_departure') {
-      icon = '🚗';
+      icon = 'arrow-forward-outline';
       dotColor = '#3B82F6';
     } else if (item.type === 'stop_arrival') {
-      icon = item.badge?.includes('Auto') ? '🤖' : '🚩';
-      dotColor = '#F59E0B';
+      icon = item.badge?.includes('Automatic') ? 'timer-outline' : 'flag-outline';
+      dotColor = colors.warning;
     }
 
     return (
@@ -57,7 +58,7 @@ export const TripTimelineList: React.FC<TripTimelineListProps> = ({ events, onSe
         {/* Center Line & Node Indicator */}
         <View style={styles.lineColumn}>
           <View style={[styles.nodeDot, { backgroundColor: dotColor }]}>
-            <Text style={styles.nodeIcon}>{icon}</Text>
+            <Ionicons name={icon} size={13} color="#FFF" />
           </View>
           {!isLast ? <View style={styles.verticalLine} /> : null}
         </View>
@@ -86,7 +87,7 @@ export const TripTimelineList: React.FC<TripTimelineListProps> = ({ events, onSe
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionHeaderTitle}>Trip Timeline 📜</Text>
+      <Text style={styles.sectionHeaderTitle}>Trip Timeline</Text>
       <FlatList
         data={events}
         keyExtractor={(item) => item.id}
@@ -139,7 +140,7 @@ const styles = StyleSheet.create({
   nodeDot: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
   contentCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 12,
     borderColor: colors.border,
     borderWidth: 1,

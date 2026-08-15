@@ -11,15 +11,16 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { collection, doc, setDoc, updateDoc, getDocs } from 'firebase/firestore';
-import { db, isMockFirebase } from '../config/firebase';
+import * as Crypto from 'expo-crypto';
 import { TripStop } from '../types/location';
+import { listStops } from './supabase/stops';
 import {
   getOfflineQueue,
   enqueueStop,
   enqueueStopUpdate,
   processPendingSyncQueue,
 } from './offlineSyncQueue';
+import { devLog } from '../utils/devLog';
 
 export const STOP_RADIUS_METERS = 75;
 export const STOP_RESUME_DISTANCE_METERS = 150;
@@ -66,13 +67,6 @@ export const getDistanceMeters = (
   return R * c;
 };
 
-// In-memory mock stop store for local demo testing
-let localMockStopsStore: Record<string, TripStop[]> = {};
-
-export const setLocalMockStopsRef = (mockStops: Record<string, TripStop[]>) => {
-  localMockStopsStore = mockStops;
-};
-
 /**
  * Main dwell-time stop evaluation pipeline
  */
@@ -86,7 +80,7 @@ export const processLocationForStopDetection = async (
 ): Promise<TripStop | null> => {
   // 1. GPS Accuracy Filter: ignore samples with accuracy worse than 100m
   if (accuracy !== undefined && accuracy !== null && accuracy > MAX_USABLE_LOCATION_ACCURACY_METERS) {
-    console.log(`⚠️ [Stop Detector] Ignored inaccurate location sample (accuracy: ${accuracy.toFixed(1)}m > ${MAX_USABLE_LOCATION_ACCURACY_METERS}m)`);
+    devLog(`⚠️ [Stop Detector] Ignored inaccurate location sample (accuracy: ${accuracy.toFixed(1)}m > ${MAX_USABLE_LOCATION_ACCURACY_METERS}m)`);
     return null;
   }
 
@@ -95,11 +89,27 @@ export const processLocationForStopDetection = async (
   try {
     // 2. Retrieve persisted detector state
     const rawState = await AsyncStorage.getItem(ASYNC_DETECTOR_STATE_KEY);
-    let state: DetectorState | null = rawState ? JSON.parse(rawState) : null;
+    let state: DetectorState | null = null;
+    if (rawState) {
+      try {
+        const parsed = JSON.parse(rawState) as Partial<DetectorState>;
+        if (
+          typeof parsed.tripId === 'string' && typeof parsed.uid === 'string' &&
+          Number.isFinite(parsed.candidateLat) && Number.isFinite(parsed.candidateLng) &&
+          Number.isFinite(parsed.candidateStartedAt) && Number.isFinite(parsed.lastSeenAt)
+        ) {
+          state = parsed as DetectorState;
+        } else {
+          await AsyncStorage.removeItem(ASYNC_DETECTOR_STATE_KEY);
+        }
+      } catch {
+        await AsyncStorage.removeItem(ASYNC_DETECTOR_STATE_KEY);
+      }
+    }
 
     // Validate ownership: reset state if tripId or uid mismatch
     if (state && (state.tripId !== tripId || state.uid !== uid)) {
-      console.log('🔄 [Stop Detector] Resetting stale detector state from previous trip/user session.');
+      devLog('🔄 [Stop Detector] Resetting stale detector state from previous trip/user session.');
       state = null;
     }
 
@@ -115,17 +125,17 @@ export const processLocationForStopDetection = async (
       }
 
       // Displacement > 150m -> Resumed travel detected!
-      console.log(`🚗 [Stop Detector] Resumed travel detected (${distFromActive.toFixed(0)}m > 150m).`);
+      devLog(`🚗 [Stop Detector] Resumed travel detected (${distFromActive.toFixed(0)}m > 150m).`);
 
       // Only update departedAt timestamp on automatic stops (leave manual stop models intact)
       if (state.activeStopIsAuto) {
-        console.log(`Updating departedAt timestamp for automatic stop ${state.activeStopId}`);
+        devLog(`Updating departedAt timestamp for automatic stop ${state.activeStopId}`);
         await enqueueStopUpdate(tripId, uid, state.activeStopId, { departedAt: now });
         processPendingSyncQueue(uid);
       }
 
       // Reset candidate lifecycle at new location
-      const newPendingId = `stop_auto_${now}_${Math.random().toString(36).substring(2, 6)}`;
+      const newPendingId = Crypto.randomUUID();
       const newState: DetectorState = {
         tripId,
         uid,
@@ -141,7 +151,7 @@ export const processLocationForStopDetection = async (
 
     // 4. State B: No Confirmed Active Stop (Evaluating unconfirmed candidate)
     if (!state) {
-      const newPendingId = `stop_auto_${now}_${Math.random().toString(36).substring(2, 6)}`;
+      const newPendingId = Crypto.randomUUID();
       const newState: DetectorState = {
         tripId,
         uid,
@@ -160,8 +170,8 @@ export const processLocationForStopDetection = async (
 
     if (distFromCandidate > STOP_RADIUS_METERS) {
       // Moved > 75m before 5 minutes -> Reset unconfirmed candidate
-      console.log(`🔄 [Stop Detector] Moved ${distFromCandidate.toFixed(0)}m > 75m. Resetting unconfirmed candidate.`);
-      const newPendingId = `stop_auto_${now}_${Math.random().toString(36).substring(2, 6)}`;
+      devLog(`🔄 [Stop Detector] Moved ${distFromCandidate.toFixed(0)}m > 75m. Resetting unconfirmed candidate.`);
+      const newPendingId = Crypto.randomUUID();
       const newState: DetectorState = {
         tripId,
         uid,
@@ -186,26 +196,21 @@ export const processLocationForStopDetection = async (
     }
 
     // Dwell Duration >= 5 minutes -> Dwell Confirmed!
-    console.log(`🎯 [Stop Detector] Dwell threshold reached (5+ minutes stationary). Performing deduplication check...`);
+    devLog(`🎯 [Stop Detector] Dwell threshold reached (5+ minutes stationary). Performing deduplication check...`);
 
     // 5. Deduplication & Cooldown Check (100m radius within last 10 minutes)
     let existingStops: TripStop[] = [];
-    if (!isMockFirebase) {
-      try {
-        const snap = await getDocs(collection(db, 'trips', tripId, 'stops'));
-        existingStops = snap.docs.map((d) => d.data() as TripStop);
-      } catch (e) {
-        console.error('Error checking existing stops for deduplication:', e);
-      }
-    } else {
-      existingStops = localMockStopsStore[tripId] || [];
+    try {
+      existingStops = await listStops(tripId);
+    } catch (e) {
+      console.error('Error checking existing stops for deduplication:', e);
     }
 
     // Merge pending unsynced local stops from queue to protect against offline manual/auto collisions
     try {
       const pendingItems = await getOfflineQueue();
       const pendingStops: TripStop[] = pendingItems
-        .filter((i) => i.tripId === tripId && (i.operationType === 'manual_stop' || i.operationType === 'auto_stop'))
+        .filter((i) => i.tripId === tripId && i.uid === uid && (i.operationType === 'manual_stop' || i.operationType === 'auto_stop'))
         .map((i) => i.payload as TripStop);
       existingStops = [...existingStops, ...pendingStops];
     } catch (e) {
@@ -219,7 +224,7 @@ export const processLocationForStopDetection = async (
     });
 
     if (recentDuplicate) {
-      console.log(`🛡️ [Stop Detector] Suppressed duplicate stop creation. Found existing stop "${recentDuplicate.name}" within 100m.`);
+      devLog(`🛡️ [Stop Detector] Suppressed duplicate stop creation. Found existing stop "${recentDuplicate.name}" within 100m.`);
       // Bind state to active stop so detector remains suppressed indefinitely until traveler moves > 150m
       state.activeStopId = recentDuplicate.id;
       state.activeStopLat = recentDuplicate.lat;
@@ -231,7 +236,7 @@ export const processLocationForStopDetection = async (
     }
 
     // 6. Create Automatic Stop using Reserved Stable Document ID
-    const stableStopId = state.pendingStopId || `stop_auto_${now}_${Math.random().toString(36).substring(2, 6)}`;
+    const stableStopId = state.pendingStopId || Crypto.randomUUID();
 
     const newAutoStop: TripStop = {
       id: stableStopId,
@@ -250,7 +255,7 @@ export const processLocationForStopDetection = async (
     await enqueueStop(tripId, uid, newAutoStop, 'auto_stop');
     processPendingSyncQueue(uid);
 
-    console.log(`✨ [Stop Detector] Successfully created automatic stop "${stableStopId}" for trip ${tripId}`);
+    devLog(`✨ [Stop Detector] Successfully created automatic stop "${stableStopId}" for trip ${tripId}`);
 
     // Transition state to Active Stop
     state.activeStopId = stableStopId;
@@ -273,7 +278,7 @@ export const processLocationForStopDetection = async (
 export const clearStopDetectorState = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(ASYNC_DETECTOR_STATE_KEY);
-    console.log('🧹 [Stop Detector] Cleared detector candidate state.');
+    devLog('🧹 [Stop Detector] Cleared detector candidate state.');
   } catch (e) {
     console.error('Error clearing detector state:', e);
   }

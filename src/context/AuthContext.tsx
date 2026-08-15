@@ -1,226 +1,161 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  onAuthStateChanged, 
-  sendSignInLinkToEmail, 
-  signInAnonymously,
-  signOut,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, isMockFirebase } from '../config/firebase';
+import * as Linking from 'expo-linking';
+
+import { supabase } from '../config/supabase';
 import { stopBackgroundLocationTracking } from '../services/backgroundLocation';
+import { disablePushTokensForCurrentUser } from '../services/notifications';
+import {
+  handleSupabaseAuthCallback, loadProfile, requestPasswordReset, sendEmailOtp,
+  signInWithPassword, signOut, signUpWithPassword, updatePassword, verifyEmailOtp,
+} from '../services/supabase/auth';
 import { AuthContextType, UserProfile } from '../types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
-  // Sync Firebase auth state with Firestore users/{uid}
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+    let active = true;
+    let lastHandledAuthUrl: string | null = null;
+    let sessionRevision = 0;
+
+    const applySession = async (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+      const revision = ++sessionRevision;
+      if (!active) return;
+      if (!session?.user) {
+        setUser(null);
+        setPasswordRecovery(false);
+        setLoading(false);
+        return;
+      }
+
       try {
-        if (firebaseUser) {
-          // Sync profile from Firestore users/{uid}
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userSnapshot = await getDoc(userDocRef);
-
-          let profileData: UserProfile;
-
-          if (userSnapshot.exists()) {
-            profileData = userSnapshot.data() as UserProfile;
-          } else {
-            // Create initial Firestore user document
-            profileData = {
-              uid: firebaseUser.uid,
-              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || `Traveler ${firebaseUser.uid.substring(0, 4)}`,
-              avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${firebaseUser.uid}`,
-              email: firebaseUser.email,
-              phoneNumber: firebaseUser.phoneNumber,
-              createdAt: Date.now(),
-            };
-            await setDoc(userDocRef, {
-              ...profileData,
-              updatedAt: serverTimestamp(),
-            });
-          }
-          setUser(profileData);
-        } else {
-          setUser(null);
-        }
-      } catch (err) {
-        console.error('Error handling Auth state change:', err);
-        // Fallback demo user state if network or mock error
-        if (firebaseUser) {
-          setUser({
-            uid: firebaseUser.uid,
-            name: firebaseUser.email?.split('@')[0] || 'Explorer User',
-            email: firebaseUser.email,
-            createdAt: Date.now(),
-          });
-        } else {
-          setUser(null);
-        }
+        const profile = await loadProfile(session.user.id, session.user.email);
+        if (active && revision === sessionRevision) setUser(profile);
+      } catch (error) {
+        console.error('[Auth] Unable to load the authenticated profile.', error);
+        if (active && revision === sessionRevision) setUser(null);
       } finally {
         setLoading(false);
       }
+    };
+
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        console.error('[Auth] Session restoration failed.', error);
+        setLoading(false);
+        return;
+      }
+      void applySession(data.session);
     });
 
-    return () => unsubscribe();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      void applySession(session);
+    });
+
+    const handleAuthUrl = async (url: string | null) => {
+      if (!url || url === lastHandledAuthUrl) return;
+      lastHandledAuthUrl = url;
+      try {
+        const callbackType = await handleSupabaseAuthCallback(url);
+        if (callbackType === 'recovery' && active) setPasswordRecovery(true);
+      } catch (error) {
+        console.error('[Auth] Unable to complete the authentication callback.', error);
+        if (active) setLoading(false);
+      }
+    };
+
+    void Linking.getInitialURL().then(handleAuthUrl);
+    const linkSubscription = Linking.addEventListener('url', (event) => {
+      void handleAuthUrl(event.url);
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+      linkSubscription.remove();
+    };
   }, []);
 
-  // Send Email Magic Link
   const sendMagicLink = async (email: string): Promise<boolean> => {
-    if (isMockFirebase) {
-      console.log(`[Mock Auth] Magic link sent to ${email}`);
-      return true;
-    }
-    try {
-      const actionCodeSettings = {
-        url: 'https://triptrack-demo.firebaseapp.com/finishSignUp',
-        handleCodeInApp: true,
-      };
-      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-      return true;
-    } catch (err) {
-      console.error('Error sending magic link:', err);
-      throw err;
-    }
+    await sendEmailOtp(email.trim());
+    return true;
   };
 
-  // Send Phone OTP
-  const sendPhoneOtp = async (phoneNumber: string): Promise<string | boolean> => {
-    if (isMockFirebase) {
-      console.log(`[Mock Auth] Phone OTP requested for ${phoneNumber}`);
-      return 'mock-verification-id-123456';
-    }
-    try {
-      // Return a simulated verification ID for dev setup
-      return 'dev-verification-id-999';
-    } catch (err) {
-      console.error('Error sending phone OTP:', err);
-      throw err;
-    }
+  const signInWithEmailPassword = (email: string, password: string) =>
+    signInWithPassword(email.trim(), password);
+
+  const createAccount = (email: string, password: string, displayName: string) =>
+    signUpWithPassword(email.trim(), password, displayName.trim());
+
+  const sendPasswordReset = (email: string) => requestPasswordReset(email.trim());
+
+  const completePasswordReset = async (password: string) => {
+    await updatePassword(password);
+    setPasswordRecovery(false);
   };
 
-  // Verify OTP Code
-  const verifyOtpCode = async (verificationId: string, code: string): Promise<boolean> => {
-    if (isMockFirebase || verificationId.startsWith('mock')) {
-      console.log(`[Mock Auth] Verified OTP code ${code} for session ${verificationId}`);
-      // Log in anonymously to trigger auth listener
-      const credential = await signInAnonymously(auth);
-      return !!credential.user;
-    }
-    // Authenticate user
-    const res = await signInAnonymously(auth);
-    return !!res.user;
+  const verifyOtpCode = async (email: string, code: string): Promise<boolean> => {
+    if (!email || !code) throw new Error('Email and verification code are required.');
+    await verifyEmailOtp(email.trim(), code.trim());
+    return true;
   };
 
-  // Instant Demo User Login for fast manual review
-  const signInAsDemoUser = async (name: string = 'Trip Traveler'): Promise<void> => {
-    setLoading(true);
-    try {
-      const res = await signInAnonymously(auth);
-      if (res.user) {
-        const demoProfile: UserProfile = {
-          uid: res.user.uid,
-          name: name,
-          avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${res.user.uid}`,
-          email: `${name.toLowerCase().replace(/\s+/g, '')}@triptrack.app`,
-          createdAt: Date.now(),
-        };
-        try {
-          await setDoc(doc(db, 'users', res.user.uid), demoProfile);
-        } catch (e) {
-          // ignore offline/mock store error
-        }
-        setUser(demoProfile);
-      }
-    } catch (err) {
-      console.error('Error logging in as demo user:', err);
-    } finally {
-      setLoading(false);
-    }
+  const unsupportedPhoneOtp = async (): Promise<string> => {
+    throw new Error('Phone OTP is unavailable in the zero-billing beta. Use email verification.');
   };
 
-  // Sign out cleanly
+  const unsupportedDemoLogin = async (): Promise<void> => {
+    throw new Error('Hosted demo login is unavailable. Use email verification.');
+  };
+
   const signOutUser = async (): Promise<void> => {
     setLoading(true);
     try {
-      if (user?.uid) {
-        // Clear FCM token on user document to prevent cross-user push leaks
-        try {
-          await setDoc(doc(db, 'users', user.uid), { fcmToken: null }, { merge: true });
-        } catch (e) {
-          // ignore
-        }
-      }
       await stopBackgroundLocationTracking();
-      await signOut(auth);
+      if (user) await disablePushTokensForCurrentUser(user.uid);
+      await signOut();
       setUser(null);
-    } catch (err) {
-      console.error('Error signing out:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Delete User Account (In-App Account Deletion)
   const deleteAccount = async (): Promise<void> => {
-    if (!user) return;
+    if (!user) throw new Error('Authentication required.');
     setLoading(true);
     try {
       await stopBackgroundLocationTracking();
-
-      const currentUid = user.uid;
-      // 1. Delete user profile document in Firestore
-      try {
-        await setDoc(doc(db, 'users', currentUid), {
-          deletedAt: Date.now(),
-          name: 'Deleted Traveler',
-          fcmToken: null,
-          email: null,
-          phoneNumber: null,
-        }, { merge: true });
-      } catch (e) {
-        console.error('Error marking user document as deleted:', e);
-      }
-
-      // 2. Delete Firebase Auth user if available
-      if (auth.currentUser) {
-        try {
-          await auth.currentUser.delete();
-        } catch (authErr) {
-          console.error('Error deleting Firebase Auth user:', authErr);
-        }
-      }
-
-      await signOut(auth);
+      const { data, error } = await supabase.functions.invoke('delete-account', { body: {} });
+      if (error) throw new Error(`Account deletion failed: ${error.message}`);
+      if (data?.success !== true) throw new Error('Account deletion failed: server did not confirm deletion.');
+      await signOut();
       setUser(null);
-      console.log(`🗑️ [Account Deletion] Successfully deleted account for user ${currentUid}`);
-    } catch (err) {
-      console.error('Error during account deletion:', err);
-      throw err;
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        isMockMode: isMockFirebase,
-        sendMagicLink,
-        sendPhoneOtp,
-        verifyOtpCode,
-        signInAsDemoUser,
-        signOutUser,
-        deleteAccount,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      isMockMode: false,
+      passwordRecovery,
+      signInWithEmailPassword,
+      createAccount,
+      sendPasswordReset,
+      completePasswordReset,
+      sendMagicLink,
+      sendPhoneOtp: unsupportedPhoneOtp,
+      verifyOtpCode,
+      signInAsDemoUser: unsupportedDemoLogin,
+      signOutUser,
+      deleteAccount,
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -228,8 +163,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

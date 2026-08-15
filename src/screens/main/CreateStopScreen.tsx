@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as Crypto from 'expo-crypto';
 import {
   StyleSheet,
   Text,
@@ -6,21 +7,23 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
   Image,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Camera, MapView, PointAnnotation } from '@maplibre/maplibre-react-native';
 import { useAuth } from '../../context/AuthContext';
-import { useTrips } from '../../context/TripContext';
 import { TripStop } from '../../types/location';
 import { enqueueStop, enqueueStopPhoto, processPendingSyncQueue } from '../../services/offlineSyncQueue';
 import { colors } from '../../theme/colors';
+
+const OPENFREEMAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 interface CreateStopScreenProps {
   route: any;
@@ -30,7 +33,6 @@ interface CreateStopScreenProps {
 export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navigation }) => {
   const { tripId, initialLat, initialLng } = route.params || {};
   const { user } = useAuth();
-  const { createTripStop } = useTrips();
 
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
@@ -81,7 +83,7 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
     }
   };
 
-  const handleSubmit = async () => {
+  const submitStop = async () => {
     if (!name.trim()) {
       setErrorMsg('Please enter a stop title (e.g. Cafe, Viewpoint, Hotel).');
       return;
@@ -98,7 +100,7 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
       if (!user?.uid) throw new Error('User must be signed in to mark a stop.');
 
       const now = Date.now();
-      const stableStopId = `stop_manual_${now}_${Math.random().toString(36).substring(2, 6)}`;
+      const stableStopId = Crypto.randomUUID();
 
       const newStop: TripStop = {
         id: stableStopId,
@@ -108,7 +110,7 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
         lng: coords.lng,
         name: name.trim(),
         note: note.trim() || undefined,
-        photoUrl: imageUri || undefined,
+        photoUrl: undefined,
         autoDetected: false,
         type: 'manual',
         createdAt: now,
@@ -116,7 +118,7 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
       };
 
       // Write-Ahead Queue: Enqueue manual stop locally first
-      await enqueueStop(tripId, user.uid, newStop, 'manual_stop', imageUri || undefined);
+      await enqueueStop(tripId, user.uid, newStop, 'manual_stop');
 
       if (imageUri) {
         try {
@@ -140,8 +142,19 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
     }
   };
 
+  const handleSubmit = () => {
+    const trimmed = name.trim();
+    if (/^\d{1,3}$/.test(trimmed)) {
+      Alert.alert('Use this stop name?', `“${trimmed}” may be hard to recognize later.`, [
+        { text: 'Edit', style: 'cancel' }, { text: 'Use name', onPress: () => void submitStop() },
+      ]);
+      return;
+    }
+    void submitStop();
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -154,7 +167,7 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Text style={styles.headerIcon}>🚩</Text>
+            <Ionicons name="flag-outline" size={34} color={colors.primaryAction} />
             <Text style={styles.title}>Mark a Stop</Text>
             <Text style={styles.subtitle}>Notify your trip group about a hotel, cafe, or viewpoint</Text>
           </View>
@@ -167,13 +180,14 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
             ) : null}
 
             {/* Stop Name Field */}
-            <Text style={styles.inputLabel}>Stop Title *</Text>
+            <Text style={styles.inputLabel}>Stop name *</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Sunset Viewpoint / Blue Bottle Cafe"
+              placeholder="e.g. Coffee break, Viewpoint, Fuel stop"
               placeholderTextColor={colors.textMuted}
               value={name}
               onChangeText={setName}
+              maxLength={80}
             />
 
             {/* Stop Note Field */}
@@ -192,27 +206,26 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
             <Text style={styles.inputLabel}>Location Pin (Drag pin to adjust)</Text>
             <View style={styles.miniMapContainer}>
               <MapView
-                provider={PROVIDER_GOOGLE}
                 style={styles.miniMap}
-                region={{
-                  latitude: coords.lat,
-                  longitude: coords.lng,
-                  latitudeDelta: 0.008,
-                  longitudeDelta: 0.008,
-                }}
+                mapStyle={OPENFREEMAP_STYLE_URL}
+                attributionEnabled
+                logoEnabled={false}
               >
-                <Marker
+                <Camera centerCoordinate={[coords.lng, coords.lat]} zoomLevel={15} />
+                <PointAnnotation
+                  id="stop-location"
                   draggable
-                  coordinate={{ latitude: coords.lat, longitude: coords.lng }}
+                  coordinate={[coords.lng, coords.lat]}
                   onDragEnd={(e) => {
-                    const newCoords = e.nativeEvent.coordinate;
-                    setCoords({ lat: newCoords.latitude, lng: newCoords.longitude });
+                    const [lng, lat] = e.geometry.coordinates;
+                    setCoords({ lat, lng });
                   }}
-                  pinColor="#F59E0B"
-                />
+                >
+                  <View style={styles.mapPin} />
+                </PointAnnotation>
               </MapView>
               <Text style={styles.coordsText}>
-                📍 Lat: {coords.lat.toFixed(5)}, Lng: {coords.lng.toFixed(5)}
+                Lat: {coords.lat.toFixed(5)}, Lng: {coords.lng.toFixed(5)}
               </Text>
             </View>
 
@@ -340,6 +353,14 @@ const styles = StyleSheet.create({
   },
   miniMap: {
     ...StyleSheet.absoluteFillObject,
+  },
+  mapPin: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F59E0B',
+    borderColor: '#FFFFFF',
+    borderWidth: 3,
   },
   coordsText: {
     position: 'absolute',

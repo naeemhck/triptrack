@@ -68,6 +68,12 @@ react {
  */
 def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBuilds') ?: false).toBoolean()
 
+def releaseStoreFile = findProperty('TRIPTRACK_UPLOAD_STORE_FILE') ?: System.getenv('TRIPTRACK_UPLOAD_STORE_FILE')
+def releaseStorePassword = findProperty('TRIPTRACK_UPLOAD_STORE_PASSWORD') ?: System.getenv('TRIPTRACK_UPLOAD_STORE_PASSWORD')
+def releaseKeyAlias = findProperty('TRIPTRACK_UPLOAD_KEY_ALIAS') ?: System.getenv('TRIPTRACK_UPLOAD_KEY_ALIAS')
+def releaseKeyPassword = findProperty('TRIPTRACK_UPLOAD_KEY_PASSWORD') ?: System.getenv('TRIPTRACK_UPLOAD_KEY_PASSWORD')
+def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
  *
@@ -104,15 +110,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
@@ -180,3 +194,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply plugin: 'com.google.gms.google-services'

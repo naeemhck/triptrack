@@ -120,7 +120,7 @@ exports.onStopCreated = functions.firestore
                 functions.logger.info(`Push notification successfully delivered to user ${uid} (msgId: ${messageId})`);
             }
             catch (err) {
-                functions.logger.warn(`Failed to send push notification to user ${uid} (token: ${fcmToken}):`, err.message);
+                functions.logger.warn(`Failed to send push notification to user ${uid}:`, err.message);
                 await deliveryRef.update({
                     status: 'failed',
                     failedAt: admin.firestore.FieldValue.serverTimestamp(),

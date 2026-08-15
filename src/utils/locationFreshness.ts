@@ -8,7 +8,7 @@
  * 
  * TIMESTAMP SEMANTICS:
  * - sampledAt: GPS coordinate fix time on device (used for physical coordinate freshness display)
- * - updatedAt: Server/Firestore sync time (used by Cloud Function checkStaleLocations for connectivity tracking)
+ * - updatedAt: database receipt time
  */
 
 export const LOCATION_DELAYED_AFTER_MS = 2 * 60 * 1000;
@@ -26,7 +26,7 @@ export interface LocationFreshnessResult {
 }
 
 /**
- * Normalizes raw timestamps (Firestore Timestamp, epoch millis, or ISO string) to epoch milliseconds
+ * Normalizes epoch milliseconds or ISO timestamps to epoch milliseconds
  */
 export const normalizeTimestamp = (raw: any): number | null => {
   if (!raw) return null;

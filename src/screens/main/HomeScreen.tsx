@@ -4,17 +4,25 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
+  Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
 
 export const HomeScreen: React.FC = () => {
   const { user, isMockMode, signOutUser } = useAuth();
+  const handleSignOut = async () => {
+    try {
+      await signOutUser();
+    } catch {
+      Alert.alert('Sign Out Failed', 'TripTrack could not securely sign out. Check your connection and try again.');
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.container}>
         
         {/* Header Section */}
@@ -29,15 +37,15 @@ export const HomeScreen: React.FC = () => {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.signOutButton} onPress={signOutUser}>
+          <TouchableOpacity style={styles.signOutButton} onPress={() => void handleSignOut()}>
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Firebase Mode Info Badge */}
+        {/* Backend status */}
         <View style={[styles.statusBadge, isMockMode ? styles.statusBadgeDemo : styles.statusBadgeLive]}>
           <Text style={styles.statusBadgeText}>
-            {isMockMode ? '⚡ Mock/Demo Auth Active' : '🔥 Live Firebase Active'}
+            {isMockMode ? 'Demo Auth Active' : 'Supabase Connected'}
           </Text>
         </View>
 
@@ -68,7 +76,7 @@ export const HomeScreen: React.FC = () => {
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Firestore Doc:</Text>
+            <Text style={styles.infoLabel}>Profile ID:</Text>
             <Text style={styles.infoValueHighlight}>users/{user?.uid}</Text>
           </View>
         </View>
@@ -78,7 +86,7 @@ export const HomeScreen: React.FC = () => {
           <Text style={styles.nextStepBadge}>STEP 1 & 2 COMPLETED ✅</Text>
           <Text style={styles.nextStepTitle}>Auth Flow & Project Ready</Text>
           <Text style={styles.nextStepText}>
-            Project scaffold and Firebase Auth flow are wired up. Next step (Step 3) will add Trip Creation, Join Codes, and Trip Member List screens.
+            Your authenticated TripTrack profile is connected to Supabase.
           </Text>
 
           <View style={styles.actionPreviewRow}>

@@ -28,12 +28,13 @@
     <h2>1. Information We Collect</h2>
     <p>TripTrack collects the minimum necessary data to provide realtime group location sharing and itinerary tracking:</p>
     <ul>
-      <li><strong>Account Information:</strong> Display name, profile photo avatar (optional), and Firebase Authentication user ID.</li>
+      <li><strong>Account Information:</strong> Email address, display name, optional profile avatar, and Supabase user ID.</li>
       <li><strong>Precise Location Data:</strong> GPS coordinates (latitude, longitude, accuracy, timestamp) collected while location sharing is enabled.</li>
       <li><strong>Background Location Data:</strong> Collected when you explicitly select "Allow Always" location access for active trips.</li>
+      <li><strong>Route Leader History:</strong> When you are explicitly designated as an active trip's Route Leader, filtered GPS samples are retained as the group's canonical traveled route. Other members' samples remain latest-location records and are not converted into full location history.</li>
       <li><strong>Trip Stops & Notes:</strong> Manually marked stop titles, notes, interactive map pin coordinates, and automatically detected dwell stops.</li>
       <li><strong>Stop Photos:</strong> User-selected photos attached to trip stops, normalized to JPEG format (max 10 MB).</li>
-      <li><strong>Device Push Tokens:</strong> Firebase Cloud Messaging (FCM) tokens used to deliver stop and stale-location notifications to your trip group.</li>
+      <li><strong>Expo Push Tokens:</strong> Device registration tokens used through Expo Push Service to deliver stop and stale-location notifications.</li>
     </ul>
 
     <h2>2. How We Use Your Information</h2>
@@ -42,6 +43,7 @@
       <li>Automatic dwell detection for stopping events during active road trips.</li>
       <li>Sending push notifications to trip members when a stop is created or location becomes stale.</li>
       <li>Providing chronological trip timelines and historical itineraries for authorized trip members.</li>
+      <li>Calculating on-route group separation and threshold alerts from the Route Leader's actual traveled path.</li>
     </ul>
 
     <h2>3. Location Sharing & Privacy Controls</h2>
@@ -53,26 +55,28 @@
     </ul>
 
     <h2>4. Data Retention & Security</h2>
-    <p>Your data is stored securely using Google Cloud Firestore and Firebase Storage with strict Security Rules:</p>
+    <p>Your application data is stored in Supabase PostgreSQL and private Supabase Storage with row-level security and storage access policies:</p>
     <ul>
-      <li>Live location coordinates are overwritten transiently during active trips and cleaned up upon trip completion.</li>
+      <li>Only the latest shared location per ordinary member and trip is retained; it is overwritten by newer samples and deleted when the trip is completed or the account is deleted.</li>
+      <li>Filtered Route Leader geometry is retained with completed trip history for authorized trip members. It records the canonical path traveled, not every raw GPS callback.</li>
       <li>Completed trip history and photos are accessible only to authorized current members of that trip.</li>
-      <li>Firebase Storage access enforces 2-document Firestore membership verification before granting media access.</li>
+      <li>Photo access requires authenticated trip membership. Uploads additionally require an active trip and ownership of the associated stop.</li>
     </ul>
 
     <h2>5. In-App Account Deletion & Rights</h2>
     <p>You have full control over your data. You may delete your TripTrack account at any time directly in the app under Settings/Profile or via our online request portal:</p>
     <ul>
       <li>Account deletion immediately stops all active location tracking and background services.</li>
-      <li>Deletes your FCM token, active state keys, and Firebase Authentication user account.</li>
-      <li>Removes your profile from Firestore and disassociates your UID from private trip membership.</li>
+      <li>Deletes your Expo push tokens, current location records, eligible memberships, and Supabase Authentication account.</li>
+      <li>Anonymizes the retained profile identity where historical trip ownership must remain intact.</li>
     </ul>
 
     <h2>6. Third-Party Data Processing</h2>
     <p>TripTrack uses trusted cloud infrastructure providers strictly to deliver service functionality:</p>
     <ul>
-      <li><strong>Google Cloud / Firebase:</strong> Authentication, Firestore database, Storage, and Cloud Messaging.</li>
-      <li><strong>Google Maps Platform:</strong> Map rendering and location visualizer APIs.</li>
+      <li><strong>Supabase:</strong> Authentication, PostgreSQL database, private photo storage, realtime updates, and server functions.</li>
+      <li><strong>Expo Push Service:</strong> Push notification delivery through the device platform's FCM or APNs infrastructure.</li>
+      <li><strong>OpenFreeMap and OpenStreetMap contributors:</strong> Interactive map styles, tiles, and map data.</li>
     </ul>
 
     <h2>7. Contact Us</h2>

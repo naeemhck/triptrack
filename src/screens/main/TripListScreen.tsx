@@ -5,14 +5,16 @@ import {
   View,
   TouchableOpacity,
   FlatList,
-  SafeAreaView,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useTrips } from '../../context/TripContext';
 import { colors } from '../../theme/colors';
 import { Trip } from '../../types/trip';
+import { formatTripDateRange } from '../../utils/dateFormat';
 
 interface TripListScreenProps {
   navigation: any;
@@ -47,25 +49,33 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
     );
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOutUser();
+    } catch {
+      Alert.alert('Sign Out Failed', 'TripTrack could not securely sign out. Check your connection and try again.');
+    }
+  };
+
   const renderTripCard = ({ item }: { item: Trip }) => {
     const isCreator = item.createdBy === user?.uid;
     const status = item.status || 'active';
 
     let statusBadge = (
       <View style={styles.activeStatusBadge}>
-        <Text style={styles.activeStatusText}>Active 🟢</Text>
+        <Text style={styles.activeStatusText}>Active</Text>
       </View>
     );
     if (status === 'planned') {
       statusBadge = (
         <View style={styles.plannedStatusBadge}>
-          <Text style={styles.plannedStatusText}>Planned 📝</Text>
+          <Text style={styles.plannedStatusText}>Planned</Text>
         </View>
       );
     } else if (status === 'completed') {
       statusBadge = (
         <View style={styles.completedStatusBadge}>
-          <Text style={styles.completedStatusText}>Completed 🏁</Text>
+          <Text style={styles.completedStatusText}>Completed</Text>
         </View>
       );
     }
@@ -78,7 +88,7 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
       >
         <View style={styles.cardHeader}>
           <View style={styles.cardIconBox}>
-            <Text style={styles.cardIcon}>🗺️</Text>
+            <Ionicons name="map-outline" size={23} color={colors.link} />
           </View>
           <View style={styles.cardTitleBox}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -86,7 +96,7 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
               {statusBadge}
             </View>
             <Text style={styles.tripDates}>
-              📅 {item.startDate} → {item.endDate}
+              {formatTripDateRange(item.startDate, item.endDate)}
             </Text>
           </View>
           {isCreator && (
@@ -98,12 +108,12 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
 
         <View style={styles.cardFooter}>
           <View style={styles.codeBadge}>
-            <Text style={styles.codeBadgeText}>🔑 {item.inviteCode}</Text>
+            <Ionicons name="key-outline" size={14} color={colors.textSecondary} /><Text style={styles.codeBadgeText}>{item.inviteCode}</Text>
           </View>
 
           <View style={styles.membersInfo}>
             <Text style={styles.membersText}>
-              👥 {item.memberIds?.length || 1} {item.memberIds?.length === 1 ? 'member' : 'members'}
+              {item.memberIds?.length || 1} {item.memberIds?.length === 1 ? 'member' : 'members'}
             </Text>
             <Text style={styles.chevron}>→</Text>
           </View>
@@ -113,14 +123,14 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.container}>
         
         {/* Header Bar */}
         <View style={styles.header}>
           <View style={styles.brandGroup}>
             <View style={styles.logoBadge}>
-              <Text style={styles.logoIcon}>📍</Text>
+              <Ionicons name="navigate" size={22} color="#FFF" />
             </View>
             <View>
               <Text style={styles.appName}>TripTrack</Text>
@@ -128,7 +138,7 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
             </View>
           </View>
 
-          <TouchableOpacity style={styles.signOutBtn} onPress={signOutUser}>
+          <TouchableOpacity style={styles.signOutBtn} onPress={() => void handleSignOut()}>
             <Text style={styles.signOutBtnText}>Exit</Text>
           </TouchableOpacity>
         </View>
@@ -163,14 +173,14 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
               style={styles.joinHeaderBtn}
               onPress={() => navigation.navigate('TripHistory')}
             >
-              <Text style={styles.joinHeaderBtnText}>📜 History</Text>
+              <Ionicons name="time-outline" size={17} color={colors.textSecondary} /><Text style={styles.joinHeaderBtnText}>History</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.joinHeaderBtn}
               onPress={() => navigation.navigate('JoinTrip')}
             >
-              <Text style={styles.joinHeaderBtnText}>🔑 Join</Text>
+              <Ionicons name="key-outline" size={17} color={colors.textSecondary} /><Text style={styles.joinHeaderBtnText}>Join</Text>
             </TouchableOpacity>
 
             <TouchableOpacity

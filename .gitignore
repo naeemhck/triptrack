@@ -1,8 +1,16 @@
 # Expo / React Native
 .expo/
+.metro.*.log
+metro*.log
 dist/
 web-build/
 node_modules/
+
+# Local physical-device QA captures
+.RKStorage-qa
+.device-*
+qa-*.png
+qa-*.xml
 
 # Environment Variables
 .env
@@ -11,6 +19,19 @@ node_modules/
 
 # Firebase / Secret keys
 *.pem
+/google-services.json
+/android/app/google-services.json
+
+# Android production signing credentials
+*.jks
+*.keystore
+!android/app/debug.keystore
+
+# Supabase local credentials and generated state
+supabase/.env
+supabase/.env.*
+supabase/.temp/
+supabase/.branches/
 
 # macOS / Windows
 .DS_Store

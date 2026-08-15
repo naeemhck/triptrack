@@ -6,10 +6,10 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
 
@@ -27,14 +27,14 @@ export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navig
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleVerify = async () => {
-    if (mode === 'phone' && (!code || code.length < 4)) {
-      setErrorMsg('Please enter the verification code sent to your phone.');
+    if (!code || code.length < 6) {
+      setErrorMsg('Please enter the 6-digit verification code from your email.');
       return;
     }
     setErrorMsg(null);
     setSubmitting(true);
     try {
-      await verifyOtpCode(verificationId || 'mock-id', code || '123456');
+      await verifyOtpCode(email || '', code);
       // Auth state listener in AuthContext will update and automatically switch stack to HomeScreen
     } catch (err: any) {
       setErrorMsg(err.message || 'Verification failed. Please try again.');
@@ -43,7 +43,7 @@ export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navig
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
@@ -73,7 +73,7 @@ export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navig
               </View>
             ) : null}
 
-            {mode === 'phone' ? (
+            {mode === 'email' ? (
               <View>
                 <Text style={styles.inputLabel}>6-Digit Code</Text>
                 <TextInput
@@ -104,7 +104,7 @@ export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navig
                 <ActivityIndicator color="#FFF" />
               ) : (
                 <Text style={styles.primaryButtonText}>
-                  {mode === 'email' ? 'Complete Magic Sign-In' : 'Verify & Continue'}
+                  Verify & Continue
                 </Text>
               )}
             </TouchableOpacity>

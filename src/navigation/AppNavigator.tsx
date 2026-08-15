@@ -1,14 +1,17 @@
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { useAuth } from '../context/AuthContext';
 import { TripProvider, useTrips } from '../context/TripContext';
 import { AuthNavigator } from './AuthNavigator';
 import { TripNavigator } from './TripNavigator';
 import { colors } from '../theme/colors';
+import { ResetPasswordScreen } from '../screens/auth/ResetPasswordScreen';
+import { setupNotificationResponseListener } from '../services/notifications';
 
 const prefix = Linking.createURL('/');
+const navigationRef = createNavigationContainerRef<any>();
 
 const linking = {
   prefixes: [prefix, 'triptrack://', 'https://triptrack.app'],
@@ -23,7 +26,7 @@ const linking = {
 
 // Deep Link Listener Inner Component
 const NavigationContent: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, passwordRecovery } = useAuth();
   const { setPendingInviteCode } = useTrips();
 
   useEffect(() => {
@@ -38,13 +41,11 @@ const NavigationContent: React.FC = () => {
         inviteCode = parsed.path.replace(/^\//, '');
       } else if (parsed.path && parsed.path.startsWith('join/')) {
         inviteCode = parsed.path.replace('join/', '');
-      } else if (parsed.queryParams?.code) {
-        inviteCode = parsed.queryParams.code as string;
       }
 
-      if (inviteCode) {
-        console.log('🔗 [Deep Link] Detected invite code:', inviteCode);
-        setPendingInviteCode(inviteCode.toUpperCase());
+      const normalizedCode = inviteCode?.toUpperCase() || '';
+      if (/^TRIP-[A-Z0-9]{4,12}$/.test(normalizedCode)) {
+        setPendingInviteCode(normalizedCode);
       }
     };
 
@@ -56,6 +57,11 @@ const NavigationContent: React.FC = () => {
 
     return () => subscription.remove();
   }, [setPendingInviteCode]);
+
+  useEffect(() => {
+    if (loading || !user) return undefined;
+    return setupNotificationResponseListener(navigationRef);
+  }, [loading, user]);
 
   if (loading) {
     return (
@@ -70,8 +76,8 @@ const NavigationContent: React.FC = () => {
   }
 
   return (
-    <NavigationContainer linking={linking}>
-      {user ? <TripNavigator /> : <AuthNavigator />}
+    <NavigationContainer ref={navigationRef} linking={linking}>
+      {passwordRecovery ? <ResetPasswordScreen /> : user ? <TripNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );
 };

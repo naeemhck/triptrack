@@ -6,11 +6,11 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTrips } from '../../context/TripContext';
 import { colors } from '../../theme/colors';
 import { TripPreview } from '../../types/trip';
@@ -75,7 +75,7 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}

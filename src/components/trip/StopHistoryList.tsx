@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { colors } from '../../theme/colors';
 import { TripStop } from '../../types/location';
+import { Ionicons } from '@expo/vector-icons';
 
 interface StopHistoryListProps {
   stops: TripStop[];
@@ -19,7 +20,7 @@ export const StopHistoryList: React.FC<StopHistoryListProps> = ({ stops, onSelec
   if (!stops || stops.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>🚩</Text>
+        <Ionicons name="flag-outline" size={30} color={colors.textMuted}/>
         <Text style={styles.emptyTitle}>No Marked Stops Yet</Text>
         <Text style={styles.emptySub}>
           Tap "Mark Stop" on the map to add hotel, cafe, or viewpoint recommendations for your trip.
@@ -56,7 +57,7 @@ export const StopHistoryList: React.FC<StopHistoryListProps> = ({ stops, onSelec
         activeOpacity={0.7}
       >
         <View style={[styles.stopIconBox, isAuto && styles.autoIconBox]}>
-          <Text style={styles.stopBadgeIcon}>{isAuto ? '🤖' : '🚩'}</Text>
+          <Ionicons name={isAuto ? 'timer-outline' : 'flag-outline'} size={20} color={isAuto ? colors.roleLeader : colors.warning}/>
         </View>
 
         <View style={styles.stopContent}>
@@ -84,7 +85,7 @@ export const StopHistoryList: React.FC<StopHistoryListProps> = ({ stops, onSelec
           ) : null}
 
           <Text style={styles.stopCreator}>
-            {isAuto ? '🤖 Auto-detected Dwell Stop' : `Marked by ${item.displayName || 'Traveler'}`}
+            {isAuto ? 'Automatic stop' : `Marked by ${item.displayName || 'Traveler'}`}
             <Text style={styles.stayText}>{stayDurationStr}</Text>
           </Text>
         </View>
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: 8,
     padding: 14,
     borderColor: colors.border,
     borderWidth: 1,
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
   stopIconBox: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: 8,
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -217,7 +218,7 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: 8,
     padding: 20,
     alignItems: 'center',
     borderColor: colors.border,

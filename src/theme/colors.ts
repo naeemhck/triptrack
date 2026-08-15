@@ -1,27 +1,11 @@
 export const colors = {
-  background: '#0F172A',
-  surface: '#1E293B',
-  surfaceLight: '#334155',
-  border: 'rgba(255, 255, 255, 0.08)',
-  borderActive: '#14B8A6',
-  
-  primary: '#14B8A6',
-  primaryDark: '#0D9488',
-  primaryLight: '#5EEAD4',
-  
-  secondary: '#6366F1',
-  secondaryLight: '#818CF8',
-  
-  textPrimary: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
-  
-  success: '#10B981',
-  warning: '#F59E0B',
-  danger: '#EF4444',
-  
-  cardBg: 'rgba(30, 41, 59, 0.75)',
-  inputBg: '#0F172A',
-  badgeDemo: 'rgba(245, 158, 11, 0.15)',
-  badgeDemoText: '#FBBF24',
+  background: '#101416', surface: '#182024', surfaceLight: '#334047', surfaceElevated: '#222C31',
+  border: '#3A474D', borderActive: '#2DD4BF', cardBg: '#182024', inputBg: '#101416',
+  textPrimary: '#F4F7F8', textSecondary: '#C6D0D4', textMuted: '#A7B4B9',
+  primaryAction: '#0D9488', secondaryAction: '#334155', link: '#60A5FA',
+  success: '#4ADE80', warning: '#FBBF24', critical: '#FB7185', roleLeader: '#A78BFA',
+  inactive: '#A7B4B9', offRoute: '#38BDF8', mapAccent: '#2DD4BF',
+  primary: '#0D9488', primaryDark: '#0F766E', primaryLight: '#5EEAD4',
+  secondary: '#7C3AED', secondaryLight: '#C4B5FD', danger: '#FB7185',
+  badgeDemo: 'rgba(251,191,36,0.15)', badgeDemoText: '#FBBF24',
 };

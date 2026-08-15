@@ -8,29 +8,20 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": false,
-
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0F172A"
     },
-
     "assetBundlePatterns": [
       "**/*"
     ],
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.triptrack.app",
-
-      "config": {
-        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-      },
-
       "associatedDomains": [
         "applinks:triptrack.app"
       ],
-
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "TripTrack needs your location to share with your trip group while a trip is active.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "TripTrack needs background location updates to automatically keep your trip group updated on your live location and detect stops.",
@@ -42,23 +33,12 @@
         ]
       }
     },
-
     "android": {
       "package": "com.triptrack.app",
-
-      "googleServicesFile": "./google-services.json",
-
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0F172A"
+        "backgroundColor": "#101416"
       },
-
-      "config": {
-        "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-        }
-      },
-
       "intentFilters": [
         {
           "action": "VIEW",
@@ -68,9 +48,6 @@
               "scheme": "https",
               "host": "triptrack.app",
               "pathPrefix": "/join"
-            },
-            {
-              "scheme": "triptrack"
             }
           ],
           "category": [
@@ -79,18 +56,23 @@
           ]
         }
       ],
-
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION",
-        "POST_NOTIFICATIONS"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
-
     "plugins": [
+      "expo-font",
       [
         "expo-build-properties",
         {
@@ -102,14 +84,12 @@
           }
         }
       ],
-
       [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow TripTrack to share your location with your trip group even when the app is in the background."
         }
       ],
-
       [
         "expo-notifications",
         {
@@ -117,17 +97,22 @@
           "color": "#14B8A6"
         }
       ],
-
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow TripTrack to select photos to attach to your marked stops."
+          "photosPermission": "Allow TripTrack to select photos to attach to your marked stops.",
+          "microphonePermission": false
         }
       ]
     ],
-
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5ccd09af-8859-4035-a7e1-7eb67d838f43"
+      }
+    },
+    "owner": "naeemhck"
   }
 }

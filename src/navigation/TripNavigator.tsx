@@ -6,6 +6,7 @@ import { JoinTripScreen } from '../screens/main/JoinTripScreen';
 import { TripDetailScreen } from '../screens/main/TripDetailScreen';
 import { CreateStopScreen } from '../screens/main/CreateStopScreen';
 import { TripHistoryScreen } from '../screens/main/TripHistoryScreen';
+import { TripSettingsScreen } from '../screens/main/TripSettingsScreen';
 import { colors } from '../theme/colors';
 
 const Stack = createNativeStackNavigator();
@@ -24,6 +25,7 @@ export const TripNavigator: React.FC = () => {
       <Stack.Screen name="CreateTrip" component={CreateTripScreen} />
       <Stack.Screen name="JoinTrip" component={JoinTripScreen} />
       <Stack.Screen name="TripDetail" component={TripDetailScreen} />
+      <Stack.Screen name="TripSettings" component={TripSettingsScreen} />
       <Stack.Screen name="CreateStop" component={CreateStopScreen} />
     </Stack.Navigator>
   );

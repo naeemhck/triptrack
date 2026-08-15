@@ -3,6 +3,7 @@ export interface MemberLocation {
   lat: number;
   lng: number;
   updatedAt: number;
+  sampledAt?: number;
   displayName?: string;
   avatar?: string;
   accuracy?: number;
@@ -18,6 +19,7 @@ export interface TripStop {
   name: string;
   note?: string;
   photoUrl?: string;
+  photoPath?: string;
   autoDetected?: boolean;
   type?: 'manual' | 'auto';
   createdAt: number;
