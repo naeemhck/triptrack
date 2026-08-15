@@ -6,6 +6,9 @@ import './src/services/backgroundLocation';
 import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import { AuthProvider } from './src/context/AuthContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
+import { initializeErrorReporting } from './src/utils/errorReporting';
+
+initializeErrorReporting();
 
 export default function App() {
   return (

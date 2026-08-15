@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
+import { reportError } from '../../utils/errorReporting';
 
 interface Props {
   children: ReactNode;
@@ -23,7 +24,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('⚠️ [ErrorBoundary] Caught fatal rendering exception:', error, errorInfo);
+    const renderError = new Error(error.message, { cause: error });
+    renderError.stack = `${error.stack ?? ''}\nComponent stack:${errorInfo.componentStack ?? ''}`;
+    reportError(renderError, { operation: 'react.render', severity: 'fatal' });
   }
 
   private handleRestart = () => {

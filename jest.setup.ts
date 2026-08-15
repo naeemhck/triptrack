@@ -5,3 +5,14 @@ jest.mock('@expo/vector-icons', () => {
     Ionicons: ({ name, ...props }: { name: string }) => React.createElement(Text, props, name),
   };
 });
+
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  captureException: jest.fn(),
+  withScope: jest.fn((callback) =>
+    callback({
+      setTag: jest.fn(),
+      setLevel: jest.fn(),
+    }),
+  ),
+}));

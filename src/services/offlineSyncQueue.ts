@@ -22,6 +22,7 @@ import { upsertLocation } from './supabase/locations';
 import { stopPhotoPath, uploadStopPhoto } from './supabase/photos';
 import { assertStopExistsOwned, updateStop, upsertStop } from './supabase/stops';
 import { devLog, devWarn } from '../utils/devLog';
+import { reportError } from '../utils/errorReporting';
 
 export const ASYNC_QUEUE_KEY = '@triptrack_offline_sync_queue';
 export const LEASE_DURATION_MS = 60 * 1000; // 60s lease timeout for standard operations
@@ -84,7 +85,7 @@ const runSerializedMutation = <T>(
             );
           }
         } catch (e) {
-          console.error('⚠️ [Sync Queue] Malformed queue JSON. Starting clean.', e);
+          reportError(e, { operation: 'offlineQueue.parse' });
         }
       }
 
@@ -92,7 +93,7 @@ const runSerializedMutation = <T>(
       await AsyncStorage.setItem(ASYNC_QUEUE_KEY, JSON.stringify(updatedQueue));
       return result;
     } catch (err) {
-      console.error('⚠️ [Sync Queue] Mutation error:', err);
+      reportError(err, { operation: 'offlineQueue.mutate' });
       throw err;
     }
   });

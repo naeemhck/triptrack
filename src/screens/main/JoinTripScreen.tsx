@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTrips } from '../../context/TripContext';
 import { colors } from '../../theme/colors';
 import { TripPreview } from '../../types/trip';
+import { inviteCodeSchema, validationMessage } from '../../validation/schemas';
 
 interface JoinTripScreenProps {
   route: any;
@@ -41,11 +42,9 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
   }, [initialCode, pendingInviteCode]);
 
   const handleResolveCode = async (codeToResolve?: string) => {
-    const codeVal = (codeToResolve || code).trim().toUpperCase();
-    if (!codeVal) {
-      setErrorMsg('Please enter a trip invite code.');
-      return;
-    }
+    const result = inviteCodeSchema.safeParse(codeToResolve || code);
+    if (!result.success) return setErrorMsg(validationMessage(result));
+    const codeVal = result.data;
     setErrorMsg(null);
     setLoadingPreview(true);
     try {

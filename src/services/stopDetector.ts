@@ -21,6 +21,7 @@ import {
   processPendingSyncQueue,
 } from './offlineSyncQueue';
 import { devLog } from '../utils/devLog';
+import { reportError } from '../utils/errorReporting';
 
 export const STOP_RADIUS_METERS = 75;
 export const STOP_RESUME_DISTANCE_METERS = 150;
@@ -221,7 +222,7 @@ export const processLocationForStopDetection = async (
     try {
       existingStops = await listStops(tripId);
     } catch (e) {
-      console.error('Error checking existing stops for deduplication:', e);
+      reportError(e, { operation: 'stopDetector.loadRemoteStops', severity: 'warning' });
     }
 
     // Merge pending unsynced local stops from queue to protect against offline manual/auto collisions
@@ -294,7 +295,7 @@ export const processLocationForStopDetection = async (
 
     return newAutoStop;
   } catch (err) {
-    console.error('Error in processLocationForStopDetection pipeline:', err);
+    reportError(err, { operation: 'stopDetector.process' });
     return null;
   }
 };
@@ -307,6 +308,6 @@ export const clearStopDetectorState = async (): Promise<void> => {
     await AsyncStorage.removeItem(ASYNC_DETECTOR_STATE_KEY);
     devLog('🧹 [Stop Detector] Cleared detector candidate state.');
   } catch (e) {
-    console.error('Error clearing detector state:', e);
+    reportError(e, { operation: 'stopDetector.clear' });
   }
 };

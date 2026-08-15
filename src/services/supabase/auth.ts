@@ -1,6 +1,12 @@
 import { supabase } from '../../config/supabase';
 import { UserProfile } from '../../types/auth';
 import { toMillis } from './mappers';
+import {
+  authCredentialsSchema,
+  emailSchema,
+  newAccountSchema,
+  newPasswordSchema,
+} from '../../validation/schemas';
 
 export async function loadProfile(userId: string, email?: string | null): Promise<UserProfile> {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -15,8 +21,9 @@ export async function loadProfile(userId: string, email?: string | null): Promis
 }
 
 export async function sendEmailOtp(email: string): Promise<void> {
+  const normalizedEmail = emailSchema.parse(email);
   const { error } = await supabase.auth.signInWithOtp({
-    email,
+    email: normalizedEmail,
     options: {
       emailRedirectTo: 'triptrack://auth/callback',
       shouldCreateUser: false,
@@ -26,7 +33,8 @@ export async function sendEmailOtp(email: string): Promise<void> {
 }
 
 export async function signInWithPassword(email: string, password: string): Promise<void> {
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const credentials = authCredentialsSchema.parse({ email, password });
+  const { error } = await supabase.auth.signInWithPassword(credentials);
   if (error) throw error;
 }
 
@@ -35,11 +43,12 @@ export async function signUpWithPassword(
   password: string,
   displayName: string,
 ): Promise<boolean> {
+  const account = newAccountSchema.parse({ email, password, displayName });
   const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
+    email: account.email,
+    password: account.password,
     options: {
-      data: { display_name: displayName },
+      data: { display_name: account.displayName },
       emailRedirectTo: 'triptrack://auth/callback',
     },
   });
@@ -48,14 +57,15 @@ export async function signUpWithPassword(
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  const normalizedEmail = emailSchema.parse(email);
+  const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
     redirectTo: 'triptrack://auth/reset-password',
   });
   if (error) throw error;
 }
 
 export async function updatePassword(password: string): Promise<void> {
-  const { error } = await supabase.auth.updateUser({ password });
+  const { error } = await supabase.auth.updateUser({ password: newPasswordSchema.parse(password) });
   if (error) throw error;
 }
 
@@ -104,7 +114,11 @@ export async function handleSupabaseAuthCallback(
 }
 
 export async function verifyEmailOtp(email: string, token: string): Promise<void> {
-  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  const { error } = await supabase.auth.verifyOtp({
+    email: emailSchema.parse(email),
+    token,
+    type: 'email',
+  });
   if (error) throw error;
 }
 

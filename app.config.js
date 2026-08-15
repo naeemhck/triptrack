@@ -10,6 +10,7 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
+    plugins: [...(config.plugins || []), '@sentry/react-native'],
     android: {
       ...config.android,
       ...(googleServicesFile ? { googleServicesFile } : {}),

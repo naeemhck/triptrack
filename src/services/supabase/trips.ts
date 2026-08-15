@@ -1,6 +1,7 @@
 import { supabase } from '../../config/supabase';
 import { Trip, TripPreview } from '../../types/trip';
 import { mapMember, mapTrip } from './mappers';
+import { inviteCodeSchema, tripCreateSchema } from '../../validation/schemas';
 
 const memberSelect = '*, profiles(display_name, avatar_url)';
 
@@ -30,10 +31,11 @@ export async function createTrip(
   startDate?: string,
   endDate?: string,
 ): Promise<Trip> {
+  const tripInput = tripCreateSchema.parse({ name, startDate, endDate });
   const { data, error } = await supabase.rpc('create_trip', {
-    p_name: name,
-    p_start_date: startDate || null,
-    p_end_date: endDate || null,
+    p_name: tripInput.name,
+    p_start_date: tripInput.startDate || null,
+    p_end_date: tripInput.endDate || null,
   });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
@@ -41,8 +43,9 @@ export async function createTrip(
 }
 
 export async function getTripPreview(inviteCode: string): Promise<TripPreview> {
+  const normalizedCode = inviteCodeSchema.parse(inviteCode);
   const { data: joined, error: joinError } = await supabase.rpc('preview_trip', {
-    p_invite_code: inviteCode,
+    p_invite_code: normalizedCode,
   });
   if (joinError) throw joinError;
   const tripRow = Array.isArray(joined) ? joined[0] : joined;
@@ -58,7 +61,8 @@ export async function getTripPreview(inviteCode: string): Promise<TripPreview> {
 }
 
 export async function joinTrip(inviteCode: string): Promise<Trip> {
-  const { data, error } = await supabase.rpc('join_trip', { p_invite_code: inviteCode });
+  const normalizedCode = inviteCodeSchema.parse(inviteCode);
+  const { data, error } = await supabase.rpc('join_trip', { p_invite_code: normalizedCode });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
   const members = await listMembers(row.id);

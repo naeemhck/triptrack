@@ -58,6 +58,7 @@ import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../config/supabase';
 import { devLog } from '../utils/devLog';
+import { reportError } from '../utils/errorReporting';
 import { processLocationForStopDetection, clearStopDetectorState } from './stopDetector';
 import {
   enqueueLocation,
@@ -82,7 +83,7 @@ export interface ActiveBgTripInfo {
 // Task execution context outside React component tree
 TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) => {
   if (error) {
-    console.error('⚠️ [Background Location Task Error]:', error.message);
+    reportError(error, { operation: 'backgroundLocation.task', severity: 'warning' });
     return;
   }
 
@@ -138,7 +139,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) =>
         accuracy,
       );
     } catch (err) {
-      console.error('Error in background location callback:', err);
+      reportError(err, { operation: 'backgroundLocation.processSample' });
     }
   }
 });
@@ -170,7 +171,7 @@ export const checkLocationPermissionsStatus = (): Promise<PermissionState> => {
       }
       return 'granted-foreground-only';
     } catch (err) {
-      console.error('Error checking location permissions:', err);
+      reportError(err, { operation: 'backgroundLocation.checkPermissions', severity: 'warning' });
       return 'denied';
     } finally {
       permissionStatusRequest = null;
@@ -258,7 +259,7 @@ export const stopBackgroundLocationTracking = async (): Promise<void> => {
       devLog('🛑 [Background Location] Task stopped cleanly.');
     }
   } catch (err) {
-    console.error('Error stopping background location updates:', err);
+    reportError(err, { operation: 'backgroundLocation.stop' });
     throw new Error('Unable to stop background location tracking.');
   }
 };
@@ -284,6 +285,6 @@ export const cleanupActiveTripState = async (
     }
     devLog(`🧹 [Cleanup] Cleaned active local state for trip.`);
   } catch (err) {
-    console.error('Error cleaning up active trip state:', err);
+    reportError(err, { operation: 'backgroundLocation.cleanup' });
   }
 };

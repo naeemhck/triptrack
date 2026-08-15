@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTrips } from '../../context/TripContext';
 import { colors } from '../../theme/colors';
 import { Trip } from '../../types/trip';
+import { tripCreateSchema, validationMessage } from '../../validation/schemas';
 
 interface CreateTripScreenProps {
   navigation: any;
@@ -32,14 +33,12 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
   const [createdTrip, setCreatedTrip] = useState<Trip | null>(null);
 
   const handleCreate = async () => {
-    if (!name.trim()) {
-      setErrorMsg('Please enter a trip title (e.g. Alpine Highway Roadtrip).');
-      return;
-    }
+    const result = tripCreateSchema.safeParse({ name, startDate, endDate });
+    if (!result.success) return setErrorMsg(validationMessage(result));
     setErrorMsg(null);
     setSubmitting(true);
     try {
-      const trip = await createTrip(name.trim(), startDate, endDate);
+      const trip = await createTrip(result.data.name, result.data.startDate!, result.data.endDate!);
       setCreatedTrip(trip);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to create trip.');

@@ -14,12 +14,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
 import { AuthMode } from '../../types/auth';
+import {
+  authCredentialsSchema,
+  emailSchema,
+  newAccountSchema,
+  validationMessage,
+} from '../../validation/schemas';
 
 interface LoginScreenProps {
   navigation: any;
 }
 
-const validEmail = (email: string) => email.includes('@');
 const authErrorMessage = (cause: any) => {
   const code = String(cause?.code || '').toLowerCase();
   const message = String(cause?.message || '').toLowerCase();
@@ -58,26 +63,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
-  const requireEmail = () => {
-    if (!validEmail(email.trim())) {
-      setError('Enter a valid email address.');
-      return false;
-    }
-    return true;
-  };
-
   const signIn = () => {
-    if (!requireEmail()) return;
-    if (!password) return setError('Enter your password.');
-    void run(() => signInWithEmailPassword(email.trim(), password));
+    const result = authCredentialsSchema.safeParse({ email, password });
+    if (!result.success) return setError(validationMessage(result));
+    void run(() => signInWithEmailPassword(result.data.email, result.data.password));
   };
 
   const signUp = () => {
-    if (!requireEmail()) return;
-    if (!displayName.trim()) return setError('Enter a display name.');
-    if (password.length < 8) return setError('Password must be at least 8 characters.');
+    const result = newAccountSchema.safeParse({ email, password, displayName });
+    if (!result.success) return setError(validationMessage(result));
     void run(async () => {
-      const confirmationRequired = await createAccount(email.trim(), password, displayName.trim());
+      const confirmationRequired = await createAccount(
+        result.data.email,
+        result.data.password,
+        result.data.displayName,
+      );
       setInfo(
         confirmationRequired
           ? 'Check your email to confirm the account, then return to TripTrack.'
@@ -87,18 +87,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   };
 
   const magicLink = () => {
-    if (!requireEmail()) return;
+    const result = emailSchema.safeParse(email);
+    if (!result.success) return setError(validationMessage(result));
     void run(async () => {
-      await sendMagicLink(email.trim());
+      await sendMagicLink(result.data);
       setInfo('Check your email for the TripTrack sign-in link or verification code.');
-      navigation.navigate('VerifyCode', { email: email.trim(), mode: 'email' });
+      navigation.navigate('VerifyCode', { email: result.data, mode: 'email' });
     });
   };
 
   const forgotPassword = () => {
-    if (!requireEmail()) return;
+    const result = emailSchema.safeParse(email);
+    if (!result.success) return setError(validationMessage(result));
     void run(async () => {
-      await sendPasswordReset(email.trim());
+      await sendPasswordReset(result.data);
       setInfo('If the account can be reset, a password email will arrive shortly.');
     });
   };
