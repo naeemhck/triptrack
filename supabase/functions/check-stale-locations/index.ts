@@ -8,18 +8,22 @@ Deno.serve(async (request) => {
   if (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`) return json({ error: 'Unauthorized' }, 401);
   const admin = adminClient();
   const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const now = new Date().toISOString();
   const { data: locations, error } = await admin.from('trip_locations')
-    .select('trip_id,user_id,sampled_at,trip_members!inner(sharing_enabled),trips!inner(status)')
-    .lt('sampled_at', cutoff).eq('trip_members.sharing_enabled', true).eq('trips.status', 'active');
+    .select('trip_id,user_id,sampled_at,trip_members!inner(sharing_enabled,sharing_expires_at),trips!inner(status)')
+    .lt('sampled_at', cutoff).eq('trip_members.sharing_enabled', true)
+    .or(`sharing_expires_at.is.null,sharing_expires_at.gt.${now}`, { referencedTable: 'trip_members' })
+    .eq('trips.status', 'active');
   if (error) return json({ error: 'Query failed' }, 500);
 
   let episodesCreated = 0;
   let delivered = 0;
   for (const location of locations || []) {
     const { data: current } = await admin.from('trip_locations')
-      .select('trip_id,user_id,sampled_at,trip_members!inner(sharing_enabled),trips!inner(status)')
+      .select('trip_id,user_id,sampled_at,trip_members!inner(sharing_enabled,sharing_expires_at),trips!inner(status)')
       .eq('trip_id', location.trip_id).eq('user_id', location.user_id)
       .eq('trip_members.sharing_enabled', true).eq('trips.status', 'active')
+      .or(`sharing_expires_at.is.null,sharing_expires_at.gt.${now}`, { referencedTable: 'trip_members' })
       .lt('sampled_at', cutoff).maybeSingle();
     if (!current || current.sampled_at !== location.sampled_at) continue;
 

@@ -13,6 +13,10 @@ export interface Trip {
   startedAt?: number;
   endedAt?: number;
   routeLeaderUserId?: string;
+  warningDistanceMeters?: number;
+  criticalDistanceMeters?: number;
+  memberNames?: string[];
+  latestActivity?: string;
 }
 
 export interface TripMember {
@@ -23,6 +27,32 @@ export interface TripMember {
   sharingEnabled: boolean;
   sharingMode?: 'always' | 'foreground' | 'off';
   lastSeenAt?: number;
+  sharingExpiresAt?: number;
+}
+
+export interface TripAlertThresholds {
+  warningDistanceMeters: number;
+  criticalDistanceMeters: number;
+}
+
+export interface TripStatistics {
+  elapsedSeconds: number;
+  routeDistanceMeters: number;
+  stopCount: number;
+  stoppedSeconds: number;
+  movingSeconds: number;
+}
+
+export type TripAlertEventType =
+  'warning' | 'critical' | 'stale' | 'member_left' | 'member_removed';
+
+export interface TripAlertEvent {
+  id: string;
+  type: TripAlertEventType;
+  userId: string;
+  displayName: string;
+  createdAt: number;
+  behindMeters?: number;
 }
 
 export interface InviteCodeLookup {

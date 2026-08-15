@@ -14,7 +14,7 @@ insert into public.trip_members(trip_id, user_id, role) values
 
 select has_table('public', 'trip_notification_preferences', 'notification preference table exists');
 select is(
-  coalesce((select warning_enabled and critical_enabled and stop_enabled and stale_enabled
+  coalesce((select warning_enabled and critical_enabled and stop_enabled and stale_enabled and member_left_enabled
     from public.trip_notification_preferences where false), true),
   true,
   'missing row preserves enabled defaults'

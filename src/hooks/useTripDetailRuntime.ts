@@ -34,7 +34,11 @@ interface TripDetailRuntimeOptions {
   listenToTripMembers: RealtimeListener<TripMember>;
   listenToTripStops: RealtimeListener<TripStop>;
   refreshTrips: () => Promise<void>;
-  toggleLocationSharing: (tripId: string, enabled: boolean) => Promise<void>;
+  toggleLocationSharing: (
+    tripId: string,
+    enabled: boolean,
+    mode?: 'always' | 'foreground' | 'off',
+  ) => Promise<void>;
   tripId?: string;
   user: UserProfile | null;
 }
@@ -66,7 +70,9 @@ export const useTripDetailRuntime = ({
   const [pendingQueue, setPendingQueue] = useState<OfflineSyncItem[]>([]);
 
   const myMemberProfile = members.find((m) => m.uid === user?.uid);
-  const isSharingEnabled = myMemberProfile?.sharingEnabled ?? false;
+  const isSharingEnabled =
+    (myMemberProfile?.sharingEnabled ?? false) &&
+    (!myMemberProfile?.sharingExpiresAt || myMemberProfile.sharingExpiresAt > Date.now());
 
   // Reconcile OS permission changes made in Settings with the native task.
   // Wait for canonical membership data so an empty initial render cannot stop
@@ -86,6 +92,7 @@ export const useTripDetailRuntime = ({
             user,
             activeTrip.name,
             activeTrip.routeLeaderUserId,
+            myMemberProfile.sharingExpiresAt,
           );
         } else if (running) {
           await stopBackgroundLocationTracking();

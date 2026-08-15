@@ -24,7 +24,9 @@ export async function upsertLocation(
 export async function listLocations(tripId: string): Promise<MemberLocation[]> {
   const { data, error } = await supabase
     .from('trip_locations')
-    .select('*, profiles(display_name,avatar_url), trip_members(sharing_enabled)')
+    .select(
+      '*, profiles(display_name,avatar_url), trip_members(sharing_enabled,sharing_expires_at)',
+    )
     .eq('trip_id', tripId);
   if (error) throw error;
   return (data || []).map(mapLocation);

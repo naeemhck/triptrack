@@ -26,4 +26,11 @@ export interface TripStop {
   departedAt?: number;
   notificationSent?: boolean;
   isPendingSync?: boolean;
+  category?: StopCategory;
+  reviewStatus?: StopReviewStatus;
+  reviewedAt?: number;
+  reviewedBy?: string;
 }
+
+export type StopCategory = 'general' | 'lodging' | 'food' | 'viewpoint' | 'fuel';
+export type StopReviewStatus = 'not_required' | 'needs_review' | 'confirmed';

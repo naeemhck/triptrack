@@ -3,6 +3,7 @@ export interface TripNotificationPreferences {
   criticalEnabled: boolean;
   stopEnabled: boolean;
   staleEnabled: boolean;
+  memberLeftEnabled: boolean;
 }
 
 export const DEFAULT_TRIP_NOTIFICATION_PREFERENCES: TripNotificationPreferences = {
@@ -10,4 +11,5 @@ export const DEFAULT_TRIP_NOTIFICATION_PREFERENCES: TripNotificationPreferences 
   criticalEnabled: true,
   stopEnabled: true,
   staleEnabled: true,
+  memberLeftEnabled: true,
 };

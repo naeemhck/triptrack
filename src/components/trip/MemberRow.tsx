@@ -18,6 +18,9 @@ interface Props {
   canManage: boolean;
   onMakeLeader: () => void;
   onRemove: () => void;
+  warningDistanceMeters?: number;
+  criticalDistanceMeters?: number;
+  stoppedSince?: number;
 }
 
 export const MemberRow = ({
@@ -31,6 +34,9 @@ export const MemberRow = ({
   canManage,
   onMakeLeader,
   onRemove,
+  warningDistanceMeters = 200,
+  criticalDistanceMeters = 500,
+  stoppedSince,
 }: Props) => {
   const delta = routeStatus?.deltaMeters;
   let accent: string = colors.success;
@@ -68,15 +74,18 @@ export const MemberRow = ({
     icon = 'arrow-up-circle-outline';
   } else if (delta !== undefined) {
     distanceLabel = `${Math.round(delta)} m behind`;
-    if (delta >= 500) {
+    if (delta >= criticalDistanceMeters) {
       accent = colors.critical;
       stateLabel = 'Critical separation';
       icon = 'alert-circle-outline';
-    } else if (delta >= 200) {
+    } else if (delta >= warningDistanceMeters) {
       accent = colors.warning;
       stateLabel = 'Warning separation';
       icon = 'warning-outline';
-    } else stateLabel = 'On route';
+    } else
+      stateLabel = stoppedSince
+        ? `Stopped ${Math.max(1, Math.round((Date.now() - stoppedSince) / 60000))}m`
+        : 'Moving';
   }
   const initials = getMemberInitials(member.displayName);
   return (

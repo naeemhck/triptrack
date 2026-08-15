@@ -20,18 +20,23 @@ export function mapTrip(row: any, memberIds: string[] = []): Trip {
     startedAt: toMillis(row.started_at),
     endedAt: toMillis(row.ended_at),
     routeLeaderUserId: row.route_leader_user_id || undefined,
+    warningDistanceMeters: row.warning_distance_meters ?? 200,
+    criticalDistanceMeters: row.critical_distance_meters ?? 500,
   };
 }
 
 export function mapMember(row: any): TripMember {
+  const sharingExpiresAt = toMillis(row.sharing_expires_at);
   return {
     uid: row.user_id,
     displayName: row.profiles?.display_name || 'Traveler',
     avatar: row.profiles?.avatar_url || undefined,
     joinedAt: toMillis(row.joined_at) || Date.now(),
-    sharingEnabled: row.sharing_enabled,
+    sharingEnabled:
+      Boolean(row.sharing_enabled) && (!sharingExpiresAt || sharingExpiresAt > Date.now()),
     sharingMode: row.sharing_mode,
     lastSeenAt: toMillis(row.last_seen_at),
+    sharingExpiresAt,
   };
 }
 
@@ -45,7 +50,10 @@ export function mapLocation(row: any): MemberLocation {
     updatedAt: toMillis(row.updated_at) || Date.now(),
     displayName: row.profiles?.display_name,
     avatar: row.profiles?.avatar_url || undefined,
-    sharingEnabled: row.trip_members?.sharing_enabled ?? true,
+    sharingEnabled:
+      (row.trip_members?.sharing_enabled ?? true) &&
+      (!row.trip_members?.sharing_expires_at ||
+        new Date(row.trip_members.sharing_expires_at).getTime() > Date.now()),
   };
 }
 
@@ -64,5 +72,9 @@ export function mapStop(row: any): TripStop {
     type: row.source === 'automatic' ? 'auto' : 'manual',
     createdAt: toMillis(row.arrived_at) || toMillis(row.created_at) || Date.now(),
     departedAt: toMillis(row.departed_at),
+    category: row.category || 'general',
+    reviewStatus: row.review_status || (row.source === 'automatic' ? 'confirmed' : 'not_required'),
+    reviewedAt: toMillis(row.reviewed_at),
+    reviewedBy: row.reviewed_by || undefined,
   };
 }

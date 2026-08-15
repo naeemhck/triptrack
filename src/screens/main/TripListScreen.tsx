@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import * as Linking from 'expo-linking';
 import {
   StyleSheet,
   Text,
@@ -15,14 +16,30 @@ import { useTrips } from '../../context/TripContext';
 import { colors } from '../../theme/colors';
 import { Trip } from '../../types/trip';
 import { TripCard } from '../../components/trip/TripCard';
+import { forgetRememberedTrip, getRememberedTrip } from '../../services/tripWorkspacePersistence';
 
 interface TripListScreenProps {
   navigation: any;
 }
 
 export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) => {
+  const resumeAttempted = useRef(false);
   const { user, signOutUser, isMockMode } = useAuth();
   const { trips, loadingTrips, pendingInviteCode } = useTrips();
+
+  useEffect(() => {
+    if (loadingTrips || pendingInviteCode || resumeAttempted.current) return;
+    resumeAttempted.current = true;
+    void Promise.all([getRememberedTrip(), Linking.getInitialURL()]).then(([tripId, url]) => {
+      if (url || !tripId) return;
+      const active = trips.find((trip) => trip.id === tripId && trip.status === 'active');
+      if (active) {
+        navigation.replace('TripDetail', { tripId: active.id, initialTab: 'map' });
+      } else {
+        void forgetRememberedTrip();
+      }
+    });
+  }, [loadingTrips, navigation, pendingInviteCode, trips]);
 
   const handleSelectTrip = (trip: Trip) => {
     navigation.navigate('TripDetail', { tripId: trip.id, tripName: trip.name });

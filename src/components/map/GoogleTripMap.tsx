@@ -4,6 +4,18 @@ import MapView, { Callout, Marker, Polyline, PROVIDER_GOOGLE, Region } from 'rea
 import { colors } from '../../theme/colors';
 import { getLocationFreshness } from '../../utils/locationFreshness';
 import { TripMapProps, TripMapRef } from './mapTypes';
+import { Ionicons } from '@expo/vector-icons';
+
+const stopIcon = (category?: string): React.ComponentProps<typeof Ionicons>['name'] =>
+  category === 'lodging'
+    ? 'bed-outline'
+    : category === 'food'
+      ? 'restaurant-outline'
+      : category === 'viewpoint'
+        ? 'binoculars-outline'
+        : category === 'fuel'
+          ? 'car-outline'
+          : 'flag-outline';
 
 const deltasForZoom = (zoom = 14) => {
   const latitudeDelta = 360 / Math.pow(2, zoom);
@@ -75,9 +87,12 @@ export const GoogleTripMap = forwardRef<TripMapRef, TripMapProps>((props, ref) =
                 <Text style={styles.initial}>
                   {location.displayName?.charAt(0).toUpperCase() || 'U'}
                 </Text>
-                <Text style={styles.name} numberOfLines={1}>
-                  {location.displayName || 'Member'}
-                </Text>
+                <View
+                  style={[
+                    styles.dot,
+                    freshness.state === 'fresh' ? styles.dotFresh : styles.dotStale,
+                  ]}
+                />
               </View>
               <Callout>
                 <Text>
@@ -91,10 +106,15 @@ export const GoogleTripMap = forwardRef<TripMapRef, TripMapProps>((props, ref) =
           <Marker
             key={`stop_${stop.id}`}
             coordinate={{ latitude: stop.lat, longitude: stop.lng }}
-            pinColor={props.highlightStopId === stop.id ? colors.primary : '#F59E0B'}
             title={stop.name}
             description={stop.note || `Added by ${stop.displayName}`}
-          />
+          >
+            <View
+              style={[styles.stopPin, props.highlightStopId === stop.id && styles.stopPinActive]}
+            >
+              <Ionicons name={stopIcon(stop.category)} size={17} color="#FFF" />
+            </View>
+          </Marker>
         ))}
       </MapView>
       <View style={styles.actions}>
@@ -156,6 +176,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   name: { color: colors.textPrimary, fontWeight: '700', marginHorizontal: 6, maxWidth: 90 },
+  dot: { width: 8, height: 8, borderRadius: 4, marginLeft: 2 },
+  dotFresh: { backgroundColor: colors.success },
+  dotStale: { backgroundColor: colors.inactive },
+  stopPin: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.warning,
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
+  stopPinActive: { backgroundColor: colors.primary },
   actions: { position: 'absolute', right: 12, bottom: 12, flexDirection: 'row', gap: 8 },
   action: {
     overflow: 'hidden',

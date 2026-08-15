@@ -16,6 +16,14 @@ import { getLocationFreshness } from '../../utils/locationFreshness';
 import { TripMapProps, TripMapRef } from './mapTypes';
 import { getMemberColor, getMemberInitials } from '../../utils/memberIdentity';
 
+const stopIcon = (category?: string): React.ComponentProps<typeof Ionicons>['name'] => {
+  if (category === 'lodging') return 'bed-outline';
+  if (category === 'food') return 'restaurant-outline';
+  if (category === 'viewpoint') return 'binoculars-outline';
+  if (category === 'fuel') return 'car-outline';
+  return 'flag-outline';
+};
+
 const OPENFREEMAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
@@ -188,10 +196,16 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
                       <Ionicons name="person" size={13} color="#FFF" />
                     )}
                   </View>
-                  <Text style={styles.markerNameBadge} numberOfLines={1}>
-                    {loc.displayName || 'Member'}
-                    {isRouteLeader ? ' · Leader' : ''}
-                  </Text>
+                  <View
+                    style={[
+                      styles.freshnessDot,
+                      freshness.state === 'fresh'
+                        ? styles.freshDot
+                        : freshness.state === 'delayed'
+                          ? styles.delayDot
+                          : styles.offDot,
+                    ]}
+                  />
                 </View>
 
                 <Callout style={styles.callout}>
@@ -231,7 +245,7 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
                   ]}
                 >
                   <Ionicons
-                    name={isAuto ? 'timer-outline' : 'flag-outline'}
+                    name={isAuto ? 'timer-outline' : stopIcon(stop.category)}
                     size={19}
                     color="#FFF"
                   />
@@ -351,6 +365,19 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     maxWidth: 90,
   },
+  freshnessDot: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  freshDot: { backgroundColor: colors.success },
+  delayDot: { backgroundColor: colors.warning },
+  offDot: { backgroundColor: colors.inactive },
   stopMarker: {
     width: 36,
     height: 36,

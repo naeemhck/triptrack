@@ -9,12 +9,15 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTrips } from '../../context/TripContext';
 import { colors } from '../../theme/colors';
 import { TripPreview } from '../../types/trip';
 import { inviteCodeSchema, validationMessage } from '../../validation/schemas';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Ionicons } from '@expo/vector-icons';
 
 interface JoinTripScreenProps {
   route: any;
@@ -31,6 +34,8 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
   const [preview, setPreview] = useState<TripPreview | null>(null);
   const [joining, setJoining] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   // Auto-resolve if code is provided via route params or pending invite link
   useEffect(() => {
@@ -127,6 +132,19 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
                 )}
               </TouchableOpacity>
             </View>
+            <TouchableOpacity
+              style={styles.scanButton}
+              onPress={async () => {
+                const permission = cameraPermission?.granted
+                  ? cameraPermission
+                  : await requestCameraPermission();
+                if (permission.granted) setScannerOpen(true);
+                else setErrorMsg('Camera permission is required to scan an invite QR code.');
+              }}
+            >
+              <Ionicons name="qr-code-outline" size={19} color={colors.primaryLight} />
+              <Text style={styles.scanText}>Scan QR code</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Trip Preview Card */}
@@ -173,6 +191,34 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
             </View>
           ) : null}
         </ScrollView>
+        <Modal
+          visible={scannerOpen}
+          animationType="slide"
+          onRequestClose={() => setScannerOpen(false)}
+        >
+          <View style={styles.scanner}>
+            <CameraView
+              style={StyleSheet.absoluteFill}
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              onBarcodeScanned={({ data }) => {
+                const match = data.match(/(?:triptrack:\/\/join\/)?(TRIP-[A-Z0-9]{4,12})/i);
+                if (!match) return;
+                const nextCode = match[1].toUpperCase();
+                setScannerOpen(false);
+                setCode(nextCode);
+                void handleResolveCode(nextCode);
+              }}
+            />
+            <TouchableOpacity
+              style={styles.closeScanner}
+              onPress={() => setScannerOpen(false)}
+              accessibilityLabel="Close QR scanner"
+            >
+              <Ionicons name="close" size={26} color="#FFF" />
+            </TouchableOpacity>
+            <Text style={styles.scannerHint}>Place the TripTrack QR code inside the frame</Text>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -227,6 +273,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: 20,
+  },
+  scanButton: {
+    minHeight: 44,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.borderActive,
+    borderRadius: 8,
+  },
+  scanText: { color: colors.primaryLight, fontWeight: '700' },
+  scanner: {
+    flex: 1,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 50,
+  },
+  closeScanner: {
+    position: 'absolute',
+    right: 20,
+    top: 50,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scannerHint: {
+    color: '#FFF',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    padding: 12,
+    borderRadius: 8,
+    fontWeight: '700',
   },
   inputLabel: {
     fontSize: 13,

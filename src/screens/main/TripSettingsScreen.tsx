@@ -13,13 +13,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
+import Slider from '@react-native-community/slider';
 import { useTrips } from '../../context/TripContext';
+import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
 import { TripNotificationPreferences } from '../../types/notifications';
 import {
   getTripNotificationPreferences,
   updateTripNotificationPreferences,
 } from '../../services/supabase/notificationPreferences';
+import { updateTripAlertThresholds } from '../../services/supabase/trips';
 
 interface Props {
   route: any;
@@ -27,7 +30,7 @@ interface Props {
 }
 type PreferenceKey = keyof TripNotificationPreferences;
 
-const settings: {
+const baseSettings: {
   key: PreferenceKey;
   title: string;
   description: string;
@@ -37,14 +40,14 @@ const settings: {
   {
     key: 'warningEnabled',
     title: 'Falling behind warning',
-    description: 'Notify me when a member reaches 200 m behind.',
+    description: '',
     icon: 'warning-outline',
     color: colors.warning,
   },
   {
     key: 'criticalEnabled',
     title: 'Critical separation',
-    description: 'Notify me when a member reaches 500 m behind.',
+    description: '',
     icon: 'alert-circle-outline',
     color: colors.critical,
   },
@@ -62,16 +65,36 @@ const settings: {
     icon: 'time-outline',
     color: colors.link,
   },
+  {
+    key: 'memberLeftEnabled',
+    title: 'Member departures',
+    description: 'Notify me when a member leaves or is removed.',
+    icon: 'person-remove-outline',
+    color: colors.secondaryLight,
+  },
 ];
 
 export const TripSettingsScreen = ({ route, navigation }: Props) => {
   const { tripId } = route.params || {};
-  const { trips } = useTrips();
+  const { trips, refreshTrips } = useTrips();
+  const { user } = useAuth();
   const trip = trips.find((item) => item.id === tripId);
   const [preferences, setPreferences] = useState<TripNotificationPreferences | null>(null);
   const [savingKey, setSavingKey] = useState<PreferenceKey | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [warningMeters, setWarningMeters] = useState(trip?.warningDistanceMeters || 200);
+  const [criticalMeters, setCriticalMeters] = useState(trip?.criticalDistanceMeters || 500);
+  const [savingThresholds, setSavingThresholds] = useState(false);
+  const settings = baseSettings.map((item) => ({
+    ...item,
+    description:
+      item.key === 'warningEnabled'
+        ? `Notify me when a member reaches ${trip?.warningDistanceMeters ?? 200} m behind.`
+        : item.key === 'criticalEnabled'
+          ? `Notify me when a member reaches ${trip?.criticalDistanceMeters ?? 500} m behind.`
+          : item.description,
+  }));
 
   const load = async () => {
     if (!tripId) return;
@@ -192,6 +215,64 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
             ))}
           </View>
         )}
+        {trip.createdBy === user?.uid && trip.status !== 'completed' ? (
+          <View style={styles.thresholds}>
+            <Text style={styles.sectionTitle}>Separation thresholds</Text>
+            <Text style={styles.sectionDescription}>
+              Trip-wide values are managed by the organizer. Changes reconcile silently.
+            </Text>
+            <Text style={styles.rowTitle}>Warning · {warningMeters} m</Text>
+            <Slider
+              minimumValue={100}
+              maximumValue={400}
+              step={50}
+              value={warningMeters}
+              onValueChange={(value) => {
+                setWarningMeters(value);
+                setCriticalMeters((current) => Math.max(current, value + 100));
+              }}
+              minimumTrackTintColor={colors.warning}
+              maximumTrackTintColor={colors.border}
+            />
+            <Text style={styles.rowTitle}>Critical · {criticalMeters} m</Text>
+            <Slider
+              minimumValue={Math.max(300, warningMeters + 100)}
+              maximumValue={2000}
+              step={50}
+              value={criticalMeters}
+              onValueChange={(value) => setCriticalMeters(Math.max(value, warningMeters + 100))}
+              minimumTrackTintColor={colors.critical}
+              maximumTrackTintColor={colors.border}
+            />
+            <TouchableOpacity
+              style={styles.saveThresholds}
+              disabled={savingThresholds}
+              onPress={async () => {
+                setSavingThresholds(true);
+                try {
+                  await updateTripAlertThresholds(tripId, {
+                    warningDistanceMeters: warningMeters,
+                    criticalDistanceMeters: Math.max(criticalMeters, warningMeters + 100),
+                  });
+                  await refreshTrips();
+                } catch {
+                  Alert.alert(
+                    'Thresholds not saved',
+                    'Only the organizer can change valid thresholds for an active or planned trip.',
+                  );
+                } finally {
+                  setSavingThresholds(false);
+                }
+              }}
+            >
+              {savingThresholds ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.saveThresholdsText}>Save thresholds</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -261,6 +342,16 @@ const styles = StyleSheet.create({
   loader: { marginTop: 32 },
   center: { alignItems: 'center', paddingVertical: 30 },
   error: { fontSize: 13, color: colors.critical, textAlign: 'center' },
+  thresholds: { marginTop: 24, gap: 8 },
+  saveThresholds: {
+    minHeight: 44,
+    borderRadius: 8,
+    backgroundColor: colors.primaryAction,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  saveThresholdsText: { color: '#FFF', fontWeight: '800' },
   retry: {
     minHeight: 44,
     paddingHorizontal: 18,

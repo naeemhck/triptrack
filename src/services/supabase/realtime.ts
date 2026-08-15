@@ -6,7 +6,10 @@ export type RealtimeTripTable =
   | 'trip_stops'
   | 'trip_routes'
   | 'trip_route_points'
-  | 'trip_member_route_status';
+  | 'trip_member_route_status'
+  | 'lag_alert_events'
+  | 'stale_alert_episodes'
+  | 'trip_member_events';
 
 export function subscribeToTripTable(
   table: RealtimeTripTable,

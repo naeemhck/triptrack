@@ -31,7 +31,11 @@ interface TripContextType {
   getTripMembers: (tripId: string) => Promise<TripMember[]>;
   listenToTripMembers: (tripId: string, callback: (members: TripMember[]) => void) => () => void;
   updateMemberLocation: (tripId: string, lat: number, lng: number) => Promise<void>;
-  toggleLocationSharing: (tripId: string, enabled: boolean) => Promise<void>;
+  toggleLocationSharing: (
+    tripId: string,
+    enabled: boolean,
+    mode?: 'always' | 'foreground' | 'off',
+  ) => Promise<void>;
   listenToTripLocations: (
     tripId: string,
     callback: (locations: MemberLocation[]) => void,
@@ -119,8 +123,12 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   };
 
-  const toggleLocationSharing = async (tripId: string, enabled: boolean) => {
-    await setSharing(tripId, enabled, enabled ? 'always' : 'off');
+  const toggleLocationSharing = async (
+    tripId: string,
+    enabled: boolean,
+    mode?: 'always' | 'foreground' | 'off',
+  ) => {
+    await setSharing(tripId, enabled, enabled ? mode || 'always' : 'off');
   };
 
   const listenToTripLocations = (

@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Text, View, TouchableOpacity, Share, Alert, Linking } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Text, View, TouchableOpacity, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useAuth } from '../../context/AuthContext';
@@ -18,13 +18,21 @@ import {
   leaveTrip as leaveTripService,
   removeTripMember,
 } from '../../services/tripLifecycle';
-import { Trip, TripMember } from '../../types/trip';
+import { Trip, TripAlertEvent, TripMember, TripStatistics } from '../../types/trip';
 import { TripStop } from '../../types/location';
 import { setRouteLeader } from '../../services/supabase/routes';
 import { tripDetailStyles as styles } from './TripDetailScreen.styles';
-import { TripDetailView } from './TripDetailView';
+import { TripWorkspaceView, WorkspaceTab } from './TripWorkspaceView';
 import { useTripDetailRuntime } from '../../hooks/useTripDetailRuntime';
 import { reportError } from '../../utils/errorReporting';
+import {
+  getTripStatistics,
+  listTripAlertEvents,
+  setTimedSharing,
+} from '../../services/supabase/trips';
+import { reviewAutomaticStop } from '../../services/supabase/stops';
+import { subscribeToTripTable } from '../../services/supabase/realtime';
+import { rememberActiveTrip } from '../../services/tripWorkspacePersistence';
 
 interface TripDetailScreenProps {
   route: any;
@@ -32,7 +40,8 @@ interface TripDetailScreenProps {
 }
 
 export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navigation }) => {
-  const { tripId, highlightStopId, targetLat, targetLng } = route.params || {};
+  const { tripId, highlightStopId, targetLat, targetLng, targetUserId, initialTab } =
+    route.params || {};
   const { user } = useAuth();
   const {
     trips,
@@ -45,6 +54,12 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
 
   const activeTrip: Trip | undefined = trips.find((t) => t.id === tripId);
   const mapRef = useRef<TripMapRef | null>(null);
+  const [alertEvents, setAlertEvents] = useState<TripAlertEvent[]>([]);
+  const [statistics, setStatistics] = useState<TripStatistics>();
+
+  useEffect(() => {
+    if (tripId && activeTrip?.status === 'active') void rememberActiveTrip(tripId);
+  }, [activeTrip?.status, tripId]);
 
   const {
     isSharingEnabled,
@@ -57,7 +72,6 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     refreshQueueState,
     routePoints,
     routeStatuses,
-    setMemberFilter,
     setPermState,
     setShowBgModal,
     setTogglingSharing,
@@ -76,12 +90,63 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     user,
   });
 
+  useEffect(() => {
+    if (!tripId) return;
+    let active = true;
+    const refreshWorkspaceData = async () => {
+      const [nextAlerts, nextStats] = await Promise.all([
+        listTripAlertEvents(tripId),
+        getTripStatistics(tripId),
+      ]);
+      if (active) {
+        setAlertEvents(nextAlerts);
+        setStatistics(nextStats);
+      }
+    };
+    void refreshWorkspaceData().catch((error) =>
+      reportError(error, { operation: 'tripWorkspace.refreshSummary', severity: 'warning' }),
+    );
+    const unsubLag = subscribeToTripTable(
+      'lag_alert_events',
+      tripId,
+      () => void refreshWorkspaceData(),
+    );
+    const unsubMember = subscribeToTripTable(
+      'trip_member_events',
+      tripId,
+      () => void refreshWorkspaceData(),
+    );
+    const unsubStale = subscribeToTripTable(
+      'stale_alert_episodes',
+      tripId,
+      () => void refreshWorkspaceData(),
+    );
+    const unsubStops = subscribeToTripTable(
+      'trip_stops',
+      tripId,
+      () => void refreshWorkspaceData(),
+    );
+    return () => {
+      active = false;
+      unsubLag();
+      unsubMember();
+      unsubStale();
+      unsubStops();
+    };
+  }, [tripId]);
+
   // Handle camera animation when notification brings user to specific stop
   useEffect(() => {
     if (targetLat !== undefined && targetLng !== undefined && mapRef.current) {
       mapRef.current.animateToLocation(targetLat, targetLng);
     }
   }, [targetLat, targetLng]);
+
+  useEffect(() => {
+    if (!targetUserId || !mapRef.current) return;
+    const target = locations.find((location) => location.uid === targetUserId);
+    if (target) mapRef.current.animateToLocation(target.lat, target.lng);
+  }, [locations, targetUserId]);
 
   // Toggle Sharing Handler
   const handleToggleSharing = async (value: boolean) => {
@@ -110,7 +175,7 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
         setPermState(currentPermState);
 
         if (currentPermState === 'granted-always') {
-          await toggleLocationSharing(tripId, true);
+          await toggleLocationSharing(tripId, true, 'foreground');
           await startBackgroundLocationTracking(
             tripId,
             user,
@@ -118,7 +183,6 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
             activeTrip?.routeLeaderUserId,
           );
         } else {
-          // Open pre-prompt explanation modal before requesting Always permission
           setShowBgModal(true);
         }
       } else {
@@ -209,7 +273,7 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     try {
       const updatedState = await checkLocationPermissionsStatus();
       setPermState(updatedState);
-      await toggleLocationSharing(tripId, true);
+      await toggleLocationSharing(tripId, true, 'foreground');
     } catch {
       Alert.alert(
         'Location Sharing Error',
@@ -227,18 +291,26 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     });
   };
 
-  const handleShareInvite = async () => {
-    if (!activeTrip) return;
-    const deepLink = `triptrack://join/${activeTrip.inviteCode}`;
-    const webFallback = `https://triptrack.app/join/${activeTrip.inviteCode}`;
-
+  const handleTimedSharing = async () => {
+    if (!tripId || !user) return;
+    setTogglingSharing(true);
     try {
-      await Share.share({
-        title: `Join our trip: ${activeTrip.name}`,
-        message: `Hey! Join our group trip "${activeTrip.name}" on TripTrack using code: ${activeTrip.inviteCode}\n\nTap to join: ${deepLink}\nOr web fallback: ${webFallback}`,
-      });
-    } catch (err) {
-      reportError(err, { operation: 'tripDetail.shareInvite', severity: 'warning' });
+      const mode = permState === 'granted-always' ? 'always' : 'foreground';
+      await setTimedSharing(tripId, mode);
+      if (mode === 'always') {
+        await startBackgroundLocationTracking(
+          tripId,
+          user,
+          activeTrip?.name,
+          activeTrip?.routeLeaderUserId,
+          Date.now() + 120 * 60 * 1000,
+        );
+      }
+    } catch (error) {
+      reportError(error, { operation: 'tripWorkspace.timedSharing' });
+      Alert.alert('Timed sharing not enabled', 'Check your connection and location permission.');
+    } finally {
+      setTogglingSharing(false);
     }
   };
 
@@ -358,6 +430,7 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
   }
 
   const isOrganizer = activeTrip.createdBy === user?.uid;
+  const myMemberProfile = members.find((member) => member.uid === user?.uid);
 
   // Merge remote Supabase stops and local pending queue stops by stopId to prevent duplicate markers
   const pendingTripItems = pendingQueue.filter((i) => i.tripId === tripId && i.uid === user?.uid);
@@ -442,42 +515,44 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
   const activeMemberCount = allMemberRows.filter((row) => row.active).length;
 
   return (
-    <TripDetailView
-      activeTrip={activeTrip}
+    <TripWorkspaceView
+      trip={activeTrip}
       activeMemberCount={activeMemberCount}
-      displayStops={displayStops}
-      handleConfirmAlways={handleConfirmAlways}
-      handleEndTrip={handleEndTrip}
-      handleFallbackForeground={handleFallbackForeground}
-      handleLeaveTrip={handleLeaveTrip}
-      handleMakeRouteLeader={handleMakeRouteLeader}
-      handleManualSyncRetry={handleManualSyncRetry}
-      handleMarkStop={handleMarkStop}
-      handleRemoveMember={handleRemoveMember}
-      handleShareInvite={handleShareInvite}
-      handleStartTrip={handleStartTrip}
-      handleToggleSharing={handleToggleSharing}
+      stops={displayStops}
+      onEndTrip={handleEndTrip}
+      onLeaveTrip={handleLeaveTrip}
+      onMakeLeader={handleMakeRouteLeader}
+      onMarkStop={handleMarkStop}
+      onRemoveMember={handleRemoveMember}
+      onStartTrip={handleStartTrip}
+      onToggleSharing={handleToggleSharing}
+      onTimedSharing={handleTimedSharing}
+      onReviewStop={async (stop, action) => reviewAutomaticStop(tripId, stop.id, action)}
+      onSelectStop={(stop) => mapRef.current?.animateToLocation(stop.lat, stop.lng)}
       highlightStopId={highlightStopId}
       isOrganizer={isOrganizer}
       isSharingEnabled={isSharingEnabled}
-      loadingData={loadingData}
       locations={locations}
       mapRef={mapRef}
-      memberFilter={memberFilter}
       memberRows={memberRows}
-      members={members}
       navigation={navigation}
       pendingCount={pendingCount}
-      permState={permState}
+      loadingData={loadingData}
+      showBackgroundPermissionModal={showBgModal}
+      onConfirmAlways={handleConfirmAlways}
+      onFallbackForeground={handleFallbackForeground}
+      onRetrySync={handleManualSyncRetry}
       routePoints={routePoints}
-      setMemberFilter={setMemberFilter}
-      showBgModal={showBgModal}
       targetLat={targetLat}
       targetLng={targetLng}
       togglingSharing={togglingSharing}
       tripId={tripId}
       userCoords={userCoords}
       userId={user?.uid}
+      sharingExpiresAt={myMemberProfile?.sharingExpiresAt}
+      initialTab={initialTab as WorkspaceTab | undefined}
+      alertEvents={alertEvents}
+      statistics={statistics}
     />
   );
 };

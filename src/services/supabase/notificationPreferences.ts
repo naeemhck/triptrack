@@ -9,6 +9,7 @@ const mapPreferences = (row: any): TripNotificationPreferences => ({
   criticalEnabled: row.critical_enabled,
   stopEnabled: row.stop_enabled,
   staleEnabled: row.stale_enabled,
+  memberLeftEnabled: row.member_left_enabled ?? true,
 });
 
 const requireUserId = async (): Promise<string> => {
@@ -48,6 +49,7 @@ export const updateTripNotificationPreferences = async (
         critical_enabled: next.criticalEnabled,
         stop_enabled: next.stopEnabled,
         stale_enabled: next.staleEnabled,
+        member_left_enabled: next.memberLeftEnabled,
       },
       { onConflict: 'trip_id,user_id' },
     )

@@ -19,7 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Camera, MapView, PointAnnotation } from '@maplibre/maplibre-react-native';
 import { useAuth } from '../../context/AuthContext';
-import { TripStop } from '../../types/location';
+import { StopCategory, TripStop } from '../../types/location';
 import {
   enqueueStop,
   enqueueStopPhoto,
@@ -40,6 +40,7 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
 
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
+  const [category, setCategory] = useState<StopCategory>('general');
   const [imageUri, setImageUri] = useState<string | null>(null);
 
   // Interactive coordinates for pin fine-tuning
@@ -118,6 +119,8 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
         type: 'manual',
         createdAt: now,
         notificationSent: false,
+        category,
+        reviewStatus: 'not_required',
       };
 
       // Write-Ahead Queue: Enqueue manual stop locally first
@@ -194,6 +197,36 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
               onChangeText={setName}
               maxLength={80}
             />
+
+            <Text style={styles.inputLabel}>Category</Text>
+            <View style={styles.categories}>
+              {(
+                [
+                  ['general', 'flag-outline', 'Other'],
+                  ['lodging', 'bed-outline', 'Hotel'],
+                  ['food', 'restaurant-outline', 'Food'],
+                  ['viewpoint', 'binoculars-outline', 'View'],
+                  ['fuel', 'car-outline', 'Fuel'],
+                ] as const
+              ).map(([value, icon, label]) => (
+                <TouchableOpacity
+                  key={value}
+                  style={[styles.category, category === value && styles.categoryActive]}
+                  onPress={() => setCategory(value)}
+                >
+                  <Ionicons
+                    name={icon}
+                    size={18}
+                    color={category === value ? colors.primaryLight : colors.textMuted}
+                  />
+                  <Text
+                    style={[styles.categoryText, category === value && styles.categoryTextActive]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             {/* Stop Note Field */}
             <Text style={styles.inputLabel}>Notes & Recommendations (Optional)</Text>
@@ -455,4 +488,19 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 13,
   },
+  categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  category: {
+    minWidth: 58,
+    minHeight: 54,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+  },
+  categoryActive: { borderColor: colors.borderActive, backgroundColor: colors.primaryDark },
+  categoryText: { color: colors.textMuted, fontSize: 10, fontWeight: '700' },
+  categoryTextActive: { color: colors.primaryLight },
 });

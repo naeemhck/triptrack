@@ -78,6 +78,7 @@ export interface ActiveBgTripInfo {
   avatar?: string;
   tripName?: string;
   routeLeaderUserId?: string;
+  sharingExpiresAt?: number;
 }
 
 // Task execution context outside React component tree
@@ -100,6 +101,13 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) =>
       const { tripId, uid, displayName, avatar, routeLeaderUserId } = tripInfo;
 
       if (!tripId || !uid) return;
+      if (tripInfo.sharingExpiresAt && tripInfo.sharingExpiresAt <= Date.now()) {
+        await AsyncStorage.removeItem(ASYNC_BG_TRIP_KEY);
+        if (await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK)) {
+          await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+        }
+        return;
+      }
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData.session?.user.id !== uid) {
         await AsyncStorage.removeItem(ASYNC_BG_TRIP_KEY);
@@ -210,6 +218,7 @@ export const startBackgroundLocationTracking = async (
   user: { uid: string; name?: string; avatar?: string },
   tripName: string = 'Active Trip',
   routeLeaderUserId?: string,
+  sharingExpiresAt?: number,
 ): Promise<PermissionState> => {
   const permState = await checkLocationPermissionsStatus();
 
@@ -221,6 +230,7 @@ export const startBackgroundLocationTracking = async (
     avatar: user.avatar,
     tripName,
     routeLeaderUserId,
+    sharingExpiresAt,
   };
   await AsyncStorage.setItem(ASYNC_BG_TRIP_KEY, JSON.stringify(activeInfo));
 

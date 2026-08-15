@@ -16,6 +16,8 @@ export async function upsertStop(tripId: string, stop: TripStop): Promise<void> 
     arrived_at: toIso(stop.createdAt),
     departed_at: toIso(stop.departedAt),
     photo_path: stop.photoPath || null,
+    category: stop.category || 'general',
+    review_status: stop.autoDetected || stop.type === 'auto' ? 'needs_review' : 'not_required',
   });
   if (!error) return;
 
@@ -31,6 +33,24 @@ export async function upsertStop(tripId: string, stop: TripStop): Promise<void> 
   }
 
   throw error;
+}
+
+export async function reviewAutomaticStop(
+  tripId: string,
+  stopId: string,
+  action: 'confirm' | 'delete',
+  fields: Pick<Partial<TripStop>, 'name' | 'note' | 'category' | 'departedAt'> = {},
+): Promise<void> {
+  const { error } = await supabase.rpc('review_trip_stop', {
+    p_trip_id: tripId,
+    p_stop_id: stopId,
+    p_action: action,
+    p_title: fields.name ?? null,
+    p_note: fields.note ?? null,
+    p_category: fields.category ?? null,
+    p_departed_at: toIso(fields.departedAt),
+  });
+  if (error) throw error;
 }
 
 export async function assertStopExistsOwned(
@@ -54,16 +74,14 @@ export async function updateStop(
   stopId: string,
   fields: Partial<TripStop>,
 ): Promise<void> {
-  const update: Record<string, unknown> = {};
-  if (fields.name !== undefined) update.title = fields.name;
-  if (fields.note !== undefined) update.note = fields.note;
-  if (fields.departedAt !== undefined) update.departed_at = toIso(fields.departedAt);
-  if (fields.photoPath !== undefined) update.photo_path = fields.photoPath;
-  const { error } = await supabase
-    .from('trip_stops')
-    .update(update)
-    .eq('trip_id', tripId)
-    .eq('id', stopId);
+  const { error } = await supabase.rpc('update_own_trip_stop', {
+    p_trip_id: tripId,
+    p_stop_id: stopId,
+    p_title: fields.name ?? null,
+    p_note: fields.note ?? null,
+    p_departed_at: toIso(fields.departedAt),
+    p_photo_path: fields.photoPath ?? null,
+  });
   if (error) throw error;
 }
 

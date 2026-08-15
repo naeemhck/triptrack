@@ -62,12 +62,22 @@ export const TripCard = ({ trip, currentUserId, onPress }: TripCardProps) => {
           <Text style={styles.codeText}>{trip.inviteCode}</Text>
         </View>
         <View style={styles.members}>
+          <View style={styles.avatars}>
+            {(trip.memberNames || []).slice(0, 3).map((name, index) => (
+              <View key={`${name}_${index}`} style={styles.avatar}>
+                <Text style={styles.avatarText}>{name.trim().charAt(0).toUpperCase()}</Text>
+              </View>
+            ))}
+          </View>
           <Text style={styles.membersText}>
             {trip.memberIds?.length || 1} {trip.memberIds?.length === 1 ? 'member' : 'members'}
           </Text>
           <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
         </View>
       </View>
+      <Text style={styles.activity} numberOfLines={1}>
+        {trip.latestActivity || 'No recorded activity yet'}
+      </Text>
     </TouchableOpacity>
   );
 };
@@ -123,6 +133,20 @@ const styles = StyleSheet.create({
   },
   codeText: { fontSize: 12, fontWeight: '700', color: colors.primaryLight },
   members: { flexDirection: 'row', alignItems: 'center' },
+  avatars: { flexDirection: 'row', marginRight: 5 },
+  avatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginLeft: -4,
+    backgroundColor: colors.primaryDark,
+    borderWidth: 1,
+    borderColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: colors.primaryLight, fontSize: 10, fontWeight: '800' },
+  activity: { color: colors.textMuted, fontSize: 11, marginTop: 10 },
   membersText: { fontSize: 13, color: colors.textSecondary, marginRight: 6 },
   activeBadge: { ...badge, backgroundColor: 'rgba(20, 184, 166, 0.15)' },
   activeText: { ...badgeText, color: colors.primaryLight },

@@ -112,6 +112,9 @@ export const setupNotificationResponseListener = (navigationRef: any): (() => vo
     const stopId = typeof data?.stopId === 'string' ? data.stopId : undefined;
     const lat = Number(data?.lat);
     const lng = Number(data?.lng);
+    const lagUserId = typeof data?.lagUserId === 'string' ? data.lagUserId : undefined;
+    const staleUserId = typeof data?.staleUserId === 'string' ? data.staleUserId : undefined;
+    const memberUserId = typeof data?.memberUserId === 'string' ? data.memberUserId : undefined;
     const uuidPattern =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -123,6 +126,8 @@ export const setupNotificationResponseListener = (navigationRef: any): (() => vo
       highlightStopId: stopId,
       targetLat: Number.isFinite(lat) && lat >= -90 && lat <= 90 ? lat : undefined,
       targetLng: Number.isFinite(lng) && lng >= -180 && lng <= 180 ? lng : undefined,
+      targetUserId: lagUserId || staleUserId || memberUserId,
+      initialTab: memberUserId ? 'members' : 'map',
     });
     return true;
   };

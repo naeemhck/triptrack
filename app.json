@@ -92,6 +92,13 @@
           "photosPermission": "Allow TripTrack to select photos to attach to your marked stops.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow TripTrack to scan trip invite QR codes.",
+          "recordAudioAndroid": false
+        }
       ]
     ],
     "web": {
