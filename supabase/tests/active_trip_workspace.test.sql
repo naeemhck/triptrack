@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(24);
 
 insert into public.profiles(id,display_name) values
 ('a1000000-0000-4000-8000-000000000001','Workspace Host'),
