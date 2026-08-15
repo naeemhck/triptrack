@@ -18,11 +18,16 @@ All notable changes to TripTrack are documented here.
 - Optional privacy-safe Sentry diagnostics for fatal, offline-sync, stop-detection, and location errors.
 - State-machine and Trip Detail presentation coverage with enforced 75% global thresholds.
 - Supabase auth and trip service contract tests for normalized inputs and RPC boundaries.
+- Structured, redacted application logging with Sentry warning/error breadcrumbs.
+- A Node.js 22 devcontainer with a lockfile-pinned Supabase CLI.
+- Local Supabase pgTAP, dependency review, and CodeQL CI gates.
 
 ### Changed
 
 - Split Trip Detail presentation, runtime synchronization, and styles into focused modules below 500 lines.
 - Run static analysis and coverage as separate CI jobs and retain LCOV reports.
+- Validate a clean Android JavaScript bundle in CI without producing a release artifact.
+- Split offline retry policy and durable photo recovery into focused, tested services.
 
 ### Security
 

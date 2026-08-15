@@ -1,17 +1,23 @@
 {
   "name": "triptrack",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=22 <25",
+    "npm": ">=10"
+  },
   "main": "expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "build:check": "expo export --platform android --output-dir dist",
     "type-check": "tsc --noEmit",
     "lint": "eslint App.tsx jest.setup.ts src scripts --max-warnings=0",
-    "format:check": "prettier --check App.tsx jest.setup.ts src scripts *.js *.json *.md",
-    "test": "jest --runInBand",
-    "test:ci": "jest --runInBand --coverage",
+    "format:check": "prettier --check App.tsx jest.setup.ts src scripts .devcontainer *.js *.json *.md",
+    "test": "jest --config jest.config.js --runInBand",
+    "test:ci": "jest --config jest.config.js --runInBand --coverage",
+    "test:db": "supabase test db",
     "verify": "npm run format:check && npm run type-check && npm run lint && npm run test:ci"
   },
   "dependencies": {
@@ -58,50 +64,13 @@
     "jest-expo": "~54.0.17",
     "prettier": "^3.9.6",
     "react-test-renderer": "^19.1.0",
+    "supabase": "2.114.0",
     "typescript": "~5.9.2"
   },
   "expo": {
     "doctor": {
       "appConfigFieldsNotSyncedCheck": {
         "enabled": false
-      }
-    }
-  },
-  "jest": {
-    "preset": "jest-expo",
-    "setupFilesAfterEnv": [
-      "<rootDir>/jest.setup.ts"
-    ],
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "<rootDir>/supabase/"
-    ],
-    "collectCoverageFrom": [
-      "src/utils/**/*.ts",
-      "src/components/location/BackgroundPermissionModal.tsx",
-      "src/components/trip/MemberRow.tsx",
-      "src/components/trip/TripCard.tsx",
-      "src/screens/main/TripDetailView.tsx",
-      "src/services/backgroundLocation.ts",
-      "src/services/offlineSyncQueue.ts",
-      "src/services/stopDetector.ts",
-      "src/services/supabase/auth.ts",
-      "src/services/supabase/mappers.ts",
-      "src/services/supabase/trips.ts",
-      "src/validation/**/*.ts",
-      "!src/utils/devLog.ts",
-      "!src/**/__tests__/**"
-    ],
-    "coverageReporters": [
-      "text",
-      "lcov"
-    ],
-    "coverageThreshold": {
-      "global": {
-        "branches": 60,
-        "functions": 75,
-        "lines": 75,
-        "statements": 75
       }
     }
   },

@@ -56,13 +56,15 @@ MapLibre/OpenFreeMap is the zero-billing default. Background location, MapLibre 
 
 ```bash
 npm run verify
+npm run build:check
+npm run test:db
 npx expo install --check
 npx expo-doctor
 ```
 
-`npm run verify` runs Prettier, TypeScript, ESLint, and 96 Jest assertions with coverage. Coverage enforcement includes Trip Detail presentation, location tracking, automatic stop detection, the offline queue, Supabase auth/trip contracts, validation boundaries, data mappers, and shared utilities.
+`npm run verify` runs Prettier, TypeScript, ESLint, and 106 Jest assertions with coverage. Coverage enforcement includes Trip Detail presentation, location tracking, automatic stop detection, the offline queue, photo recovery, backoff policy, Supabase auth/trip contracts, validation boundaries, data mappers, and shared utilities. `npm run build:check` produces an ignored Android JavaScript export to prove Metro can bundle the application without creating a release artifact.
 
-CI runs static analysis and coverage tests as independent jobs, retains the LCOV report, and fails on critical production dependency advisories. Expo SDK upgrades remain compatibility-controlled through `expo install --check` and Dependabot rather than forced npm major-version rewrites.
+CI runs static analysis, coverage tests, and the local pgTAP database suite as independent jobs. It retains the LCOV report, scans JavaScript and TypeScript with CodeQL, reviews pull-request dependency changes at high severity, and fails on critical production dependency advisories. Expo SDK upgrades remain compatibility-controlled through `expo install --check` and Dependabot rather than forced npm major-version rewrites.
 
 Database tests are transactional pgTAP files:
 
@@ -72,6 +74,21 @@ npx supabase test db
 ```
 
 The canonical leader-route suite contains 23 server-side assertions. Notification preference tests cover enabled defaults, membership enforcement, and self-only RLS behavior.
+
+### Development Container
+
+The checked-in devcontainer provides Node.js 22, the lockfile-pinned Supabase CLI, and access to the host Docker engine. It supports JavaScript verification and the complete local Supabase stack. Native Android builds still use the host Android Studio, SDK 36, and JDK 21 toolchain.
+
+In VS Code, run **Dev Containers: Reopen in Container**, then:
+
+```bash
+npx supabase start
+npx supabase test db
+npm run verify
+npm run build:check
+```
+
+The local Supabase stack is development-only and must not be exposed to external traffic.
 
 ## Supabase Development
 
@@ -84,7 +101,7 @@ npx supabase migration list
 npx supabase db lint --linked --schema public
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for change and review requirements and [CODEX_HANDOFF.md](CODEX_HANDOFF.md) for the current release-readiness state.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for change and review requirements, [SECURITY.md](SECURITY.md) for private reporting and dependency policy, and [CODEX_HANDOFF.md](CODEX_HANDOFF.md) for the current release-readiness state.
 
 Sentry is optional at runtime. Creating a Sentry project and configuring `EXPO_PUBLIC_SENTRY_DSN` enables event delivery; source-map upload credentials must be stored only in the EAS or CI secret store.
 

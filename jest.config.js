@@ -1,0 +1,33 @@
+module.exports = {
+  preset: 'jest-expo',
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/supabase/'],
+  collectCoverageFrom: [
+    'src/utils/**/*.ts',
+    'src/components/location/BackgroundPermissionModal.tsx',
+    'src/components/trip/MemberRow.tsx',
+    'src/components/trip/TripCard.tsx',
+    'src/screens/main/TripDetailView.tsx',
+    'src/services/backgroundLocation.ts',
+    'src/services/offlineSyncBackoff.ts',
+    'src/services/offlineSyncPhotos.ts',
+    'src/services/offlineSyncQueue.ts',
+    'src/services/offlineSyncStore.ts',
+    'src/services/stopDetector.ts',
+    'src/services/supabase/auth.ts',
+    'src/services/supabase/mappers.ts',
+    'src/services/supabase/trips.ts',
+    'src/validation/**/*.ts',
+    '!src/utils/devLog.ts',
+    '!src/**/__tests__/**',
+  ],
+  coverageReporters: ['text', 'lcov'],
+  coverageThreshold: {
+    global: {
+      branches: 60,
+      functions: 75,
+      lines: 75,
+      statements: 75,
+    },
+  },
+};

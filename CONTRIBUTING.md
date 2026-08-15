@@ -15,6 +15,8 @@ Run these commands before opening a pull request:
 npm ci
 npx expo install --check
 npm run verify
+npm run build:check
+npm run test:db
 npx expo-doctor
 ```
 

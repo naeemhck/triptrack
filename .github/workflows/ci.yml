@@ -29,6 +29,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Review dependency changes
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=critical
 
@@ -43,6 +49,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Bundle Android JavaScript
+        run: npm run build:check
 
   tests:
     runs-on: ubuntu-latest
@@ -69,3 +78,29 @@ jobs:
           name: coverage-lcov
           path: coverage/lcov.info
           retention-days: 14
+
+  database-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start local Supabase
+        run: npx supabase start
+
+      - name: Run database tests
+        run: npm run test:db
+
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop --no-backup
