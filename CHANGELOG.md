@@ -13,6 +13,7 @@ All notable changes to TripTrack are documented here.
 - MapLibre/OpenFreeMap and optional Google Maps providers.
 - Email/password, Magic Link, and password-reset authentication flows.
 - Expo-compatible Jest, ESLint, CI, and dependency update automation.
+- Component-level tests for trip cards, member route status, and background permission choices.
 
 ### Security
 

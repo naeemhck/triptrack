@@ -39,7 +39,7 @@ module.exports = defineConfig([
     },
   },
   {
-    files: ['**/__tests__/**/*.{ts,tsx}'],
+    files: ['jest.setup.ts', '**/__tests__/**/*.{ts,tsx}'],
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
 ]);

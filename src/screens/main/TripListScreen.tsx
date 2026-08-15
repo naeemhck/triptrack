@@ -14,7 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTrips } from '../../context/TripContext';
 import { colors } from '../../theme/colors';
 import { Trip } from '../../types/trip';
-import { formatTripDateRange } from '../../utils/dateFormat';
+import { TripCard } from '../../components/trip/TripCard';
 
 interface TripListScreenProps {
   navigation: any;
@@ -38,75 +38,6 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
       );
     }
   };
-
-  const renderTripCard = ({ item }: { item: Trip }) => {
-    const isCreator = item.createdBy === user?.uid;
-    const status = item.status || 'active';
-
-    let statusBadge = (
-      <View style={styles.activeStatusBadge}>
-        <Text style={styles.activeStatusText}>Active</Text>
-      </View>
-    );
-    if (status === 'planned') {
-      statusBadge = (
-        <View style={styles.plannedStatusBadge}>
-          <Text style={styles.plannedStatusText}>Planned</Text>
-        </View>
-      );
-    } else if (status === 'completed') {
-      statusBadge = (
-        <View style={styles.completedStatusBadge}>
-          <Text style={styles.completedStatusText}>Completed</Text>
-        </View>
-      );
-    }
-
-    return (
-      <TouchableOpacity
-        style={styles.tripCard}
-        onPress={() => handleSelectTrip(item)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.cardHeader}>
-          <View style={styles.cardIconBox}>
-            <Ionicons name="map-outline" size={23} color={colors.link} />
-          </View>
-          <View style={styles.cardTitleBox}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.tripName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              {statusBadge}
-            </View>
-            <Text style={styles.tripDates}>
-              {formatTripDateRange(item.startDate, item.endDate)}
-            </Text>
-          </View>
-          {isCreator && (
-            <View style={styles.creatorBadge}>
-              <Text style={styles.creatorBadgeText}>Host</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.cardFooter}>
-          <View style={styles.codeBadge}>
-            <Ionicons name="key-outline" size={14} color={colors.textSecondary} />
-            <Text style={styles.codeBadgeText}>{item.inviteCode}</Text>
-          </View>
-
-          <View style={styles.membersInfo}>
-            <Text style={styles.membersText}>
-              {item.memberIds?.length || 1} {item.memberIds?.length === 1 ? 'member' : 'members'}
-            </Text>
-            <Text style={styles.chevron}>→</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.container}>
@@ -214,7 +145,9 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
           <FlatList
             data={trips}
             keyExtractor={(item: Trip) => item.id}
-            renderItem={renderTripCard}
+            renderItem={({ item }) => (
+              <TripCard trip={item} currentUserId={user?.uid} onPress={handleSelectTrip} />
+            )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           />
@@ -372,87 +305,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 30,
   },
-  tripCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderColor: colors.border,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-  cardIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: colors.inputBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  cardIcon: {
-    fontSize: 22,
-  },
-  cardTitleBox: {
-    flex: 1,
-  },
-  tripName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  tripDates: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  creatorBadge: {
-    backgroundColor: 'rgba(20, 184, 166, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  creatorBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primaryLight,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 10,
-  },
-  codeBadge: {
-    backgroundColor: colors.inputBg,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  codeBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primaryLight,
-  },
-  membersInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  membersText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginRight: 6,
-  },
-  chevron: {
-    fontSize: 14,
-    color: colors.textMuted,
-  },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
@@ -511,38 +363,5 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
-  },
-  activeStatusBadge: {
-    backgroundColor: 'rgba(20, 184, 166, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  activeStatusText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: colors.primaryLight,
-  },
-  plannedStatusBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  plannedStatusText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#FBBF24',
-  },
-  completedStatusBadge: {
-    backgroundColor: 'rgba(100, 116, 139, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  completedStatusText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: colors.textSecondary,
   },
 });
