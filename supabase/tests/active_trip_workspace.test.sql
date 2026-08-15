@@ -38,7 +38,7 @@ select is((select review_status::text from public.trip_stops where id='a3000000-
 select is((select latitude from public.trip_stops where id='a3000000-0000-4000-8000-000000000001'),10::double precision,'review cannot mutate coordinates');
 select ok((select elapsed_seconds>=3500 and stop_count=1 from public.get_trip_statistics('a2000000-0000-4000-8000-000000000001')),'member reads canonical statistics');
 
-select hasnt_table_privilege('authenticated','public.trip_stops','UPDATE','direct stop metadata updates are revoked');
+select ok(not has_table_privilege('authenticated','public.trip_stops','UPDATE'),'direct stop metadata updates are revoked');
 set local "request.jwt.claim.sub"='a1000000-0000-4000-8000-000000000002';
 select lives_ok($$select public.update_own_trip_stop('a2000000-0000-4000-8000-000000000001','a3000000-0000-4000-8000-000000000001',null,null,now(),null)$$,'owner records automatic stop departure through validated RPC');
 select throws_ok($$select public.review_trip_stop('a2000000-0000-4000-8000-000000000001','a3000000-0000-4000-8000-000000000001','confirm')$$,'P0001','Active trip organizer required','member cannot review an automatic stop');
