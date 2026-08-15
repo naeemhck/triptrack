@@ -7,7 +7,12 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "lint": "eslint App.tsx src scripts --max-warnings=0",
+    "format:check": "prettier --check App.tsx src scripts *.js *.json *.md",
+    "test": "jest --runInBand",
+    "test:ci": "jest --runInBand --coverage",
+    "verify": "npm run format:check && npm run type-check && npm run lint && npm run test:ci"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -39,14 +44,46 @@
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
+    "@types/jest": "^29.5.14",
     "@types/react": "~19.1.0",
     "babel-preset-expo": "~54.0.0",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~10.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "jest-expo": "~54.0.17",
+    "prettier": "^3.9.6",
     "typescript": "~5.9.2"
   },
   "expo": {
     "doctor": {
       "appConfigFieldsNotSyncedCheck": {
         "enabled": false
+      }
+    }
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/supabase/"
+    ],
+    "collectCoverageFrom": [
+      "src/utils/**/*.ts",
+      "src/services/offlineSyncQueue.ts",
+      "src/services/supabase/mappers.ts",
+      "!src/utils/devLog.ts"
+    ],
+    "coverageReporters": [
+      "text",
+      "lcov"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 55,
+        "functions": 70,
+        "lines": 65,
+        "statements": 65
       }
     }
   },

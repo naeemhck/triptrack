@@ -1,12 +1,12 @@
 /**
  * TripTrack Trip Lifecycle & Member Management Service
- * 
+ *
  * ADMINISTRATIVE LIFECYCLE CONTROLS:
  * 1. startTrip: Planned -> Active (sets startedAt = Date.now())
  * 2. endTrip: Active -> Completed (sets endedAt = Date.now(), runs cleanupActiveTripState)
  * 3. leaveTrip: Non-organizer leaves trip; atomic batch update on memberIds & members subcollection
  * 4. removeTripMember: Organizer removes member; atomic batch update
- * 
+ *
  * NOTE: Administrative actions require network connectivity.
  */
 
@@ -52,7 +52,7 @@ export const leaveTrip = async (tripId: string, currentUid: string): Promise<voi
 export const removeTripMember = async (
   tripId: string,
   organizerUid: string,
-  targetMemberUid: string
+  targetMemberUid: string,
 ): Promise<void> => {
   void organizerUid;
   await removeMember(tripId, targetMemberUid);

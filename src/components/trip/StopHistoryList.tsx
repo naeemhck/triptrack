@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  Image,
-  FlatList,
-} from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Image, FlatList } from 'react-native';
 import { colors } from '../../theme/colors';
 import { TripStop } from '../../types/location';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +13,7 @@ export const StopHistoryList: React.FC<StopHistoryListProps> = ({ stops, onSelec
   if (!stops || stops.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="flag-outline" size={30} color={colors.textMuted}/>
+        <Ionicons name="flag-outline" size={30} color={colors.textMuted} />
         <Text style={styles.emptyTitle}>No Marked Stops Yet</Text>
         <Text style={styles.emptySub}>
           Tap "Mark Stop" on the map to add hotel, cafe, or viewpoint recommendations for your trip.
@@ -57,7 +50,11 @@ export const StopHistoryList: React.FC<StopHistoryListProps> = ({ stops, onSelec
         activeOpacity={0.7}
       >
         <View style={[styles.stopIconBox, isAuto && styles.autoIconBox]}>
-          <Ionicons name={isAuto ? 'timer-outline' : 'flag-outline'} size={20} color={isAuto ? colors.roleLeader : colors.warning}/>
+          <Ionicons
+            name={isAuto ? 'timer-outline' : 'flag-outline'}
+            size={20}
+            color={isAuto ? colors.roleLeader : colors.warning}
+          />
         </View>
 
         <View style={styles.stopContent}>
@@ -75,7 +72,9 @@ export const StopHistoryList: React.FC<StopHistoryListProps> = ({ stops, onSelec
                 </View>
               ) : null}
             </View>
-            <Text style={styles.stopTime}>{dateStr} • {timeStr}</Text>
+            <Text style={styles.stopTime}>
+              {dateStr} • {timeStr}
+            </Text>
           </View>
 
           {item.note ? <Text style={styles.stopNote}>{item.note}</Text> : null}

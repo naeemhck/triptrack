@@ -33,7 +33,7 @@ export async function signInWithPassword(email: string, password: string): Promi
 export async function signUpWithPassword(
   email: string,
   password: string,
-  displayName: string
+  displayName: string,
 ): Promise<boolean> {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -59,10 +59,18 @@ export async function updatePassword(password: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function handleSupabaseAuthCallback(url: string): Promise<'signin' | 'recovery' | null> {
+export async function handleSupabaseAuthCallback(
+  url: string,
+): Promise<'signin' | 'recovery' | null> {
   const parsed = new URL(url);
-  const isSignIn = parsed.protocol === 'triptrack:' && parsed.hostname === 'auth' && parsed.pathname === '/callback';
-  const isRecovery = parsed.protocol === 'triptrack:' && parsed.hostname === 'auth' && parsed.pathname === '/reset-password';
+  const isSignIn =
+    parsed.protocol === 'triptrack:' &&
+    parsed.hostname === 'auth' &&
+    parsed.pathname === '/callback';
+  const isRecovery =
+    parsed.protocol === 'triptrack:' &&
+    parsed.hostname === 'auth' &&
+    parsed.pathname === '/reset-password';
   if (!isSignIn && !isRecovery) {
     return null;
   }

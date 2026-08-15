@@ -4,8 +4,9 @@ module.exports = ({ config }) => {
   const androidKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY;
   const iosKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY;
   const localGoogleServicesFile = './google-services.json';
-  const googleServicesFile = process.env.GOOGLE_SERVICES_JSON
-    || (fs.existsSync(localGoogleServicesFile) ? localGoogleServicesFile : undefined);
+  const googleServicesFile =
+    process.env.GOOGLE_SERVICES_JSON ||
+    (fs.existsSync(localGoogleServicesFile) ? localGoogleServicesFile : undefined);
 
   return {
     ...config,

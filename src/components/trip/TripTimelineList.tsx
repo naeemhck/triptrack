@@ -66,7 +66,9 @@ export const TripTimelineList: React.FC<TripTimelineListProps> = ({ events, onSe
         {/* Right Column: Event Content Card */}
         <View style={styles.contentCard}>
           <View style={styles.cardHeader}>
-            <Text style={styles.eventTitle} numberOfLines={1}>{item.title}</Text>
+            <Text style={styles.eventTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
             {item.badge ? (
               <View style={styles.badgePill}>
                 <Text style={styles.badgeText}>{item.badge}</Text>

@@ -1,16 +1,17 @@
 import React, { useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  Image,
-  Platform,
-} from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Camera, CameraRef, Callout, LineLayer, MapView, PointAnnotation, ShapeSource, SymbolLayer } from '@maplibre/maplibre-react-native';
+import {
+  Camera,
+  CameraRef,
+  Callout,
+  LineLayer,
+  MapView,
+  PointAnnotation,
+  ShapeSource,
+  SymbolLayer,
+} from '@maplibre/maplibre-react-native';
 import { colors } from '../../theme/colors';
-import { MemberLocation, TripStop } from '../../types/location';
 import { getLocationFreshness } from '../../utils/locationFreshness';
 import { TripMapProps, TripMapRef } from './mapTypes';
 import { getMemberColor, getMemberInitials } from '../../utils/memberIdentity';
@@ -18,28 +19,56 @@ import { getMemberColor, getMemberInitials } from '../../utils/memberIdentity';
 const OPENFREEMAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
-  ({ locations, stops, routePoints = [], routeLeaderUserId, userLocation, onMarkStop, allowMarkStop, targetLat, targetLng, highlightStopId, initialCamera, onCameraChange }, ref) => {
+  (
+    {
+      locations,
+      stops,
+      routePoints = [],
+      routeLeaderUserId,
+      userLocation,
+      onMarkStop,
+      allowMarkStop,
+      targetLat,
+      targetLng,
+      highlightStopId,
+      initialCamera,
+      onCameraChange,
+    },
+    ref,
+  ) => {
     const cameraRef = useRef<CameraRef | null>(null);
 
     // Initial default map center (San Francisco fallback)
     const initialCenter: [number, number] = [
-      initialCamera?.longitude ?? userLocation?.lng ?? targetLng ?? (locations.length ? locations[0].lng : -122.4194),
-      initialCamera?.latitude ?? userLocation?.lat ?? targetLat ?? (locations.length ? locations[0].lat : 37.7749),
+      initialCamera?.longitude ??
+        userLocation?.lng ??
+        targetLng ??
+        (locations.length ? locations[0].lng : -122.4194),
+      initialCamera?.latitude ??
+        userLocation?.lat ??
+        targetLat ??
+        (locations.length ? locations[0].lat : 37.7749),
     ];
 
     // Expose imperative camera animation method
     useImperativeHandle(ref, () => ({
       animateToLocation: (lat: number, lng: number) => {
-        cameraRef.current?.setCamera({ centerCoordinate: [lng, lat], zoomLevel: 14, animationDuration: 1000 });
+        cameraRef.current?.setCamera({
+          centerCoordinate: [lng, lat],
+          zoomLevel: 14,
+          animationDuration: 1000,
+        });
       },
     }));
 
-    const cameraCenter: [number, number] = targetLat !== undefined && targetLng !== undefined
-      ? [targetLng, targetLat]
-      : locations.length === 1
-        ? [locations[0].lng, locations[0].lat]
-        : initialCenter;
-    const cameraZoom = targetLat !== undefined && targetLng !== undefined ? 14 : locations.length === 1 ? 14 : 11;
+    const cameraCenter: [number, number] =
+      targetLat !== undefined && targetLng !== undefined
+        ? [targetLng, targetLat]
+        : locations.length === 1
+          ? [locations[0].lng, locations[0].lat]
+          : initialCenter;
+    const cameraZoom =
+      targetLat !== undefined && targetLng !== undefined ? 14 : locations.length === 1 ? 14 : 11;
 
     // Auto-fit only when there are multiple members to frame.
     useEffect(() => {
@@ -51,7 +80,7 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
             [Math.max(...lngs), Math.max(...lats)],
             [Math.min(...lngs), Math.min(...lats)],
             60,
-            800
+            800,
           );
         }, 800);
         return () => clearTimeout(timer);
@@ -60,7 +89,11 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
 
     const handleCenterOnMe = () => {
       if (userLocation) {
-        cameraRef.current?.setCamera({ centerCoordinate: [userLocation.lng, userLocation.lat], zoomLevel: 13, animationDuration: 1000 });
+        cameraRef.current?.setCamera({
+          centerCoordinate: [userLocation.lng, userLocation.lat],
+          zoomLevel: 13,
+          animationDuration: 1000,
+        });
       }
     };
 
@@ -83,34 +116,61 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
           }}
         >
           {routePoints.length > 1 ? (
-            <ShapeSource id="canonical-route" shape={{ type: 'Feature', properties: {}, geometry: {
-              type: 'LineString', coordinates: routePoints.map((point) => [point.longitude, point.latitude]),
-            } }}>
-              <LineLayer id="canonical-route-line" style={{ lineColor: colors.mapAccent, lineWidth: 5, lineOpacity: 0.88 }} />
-              <SymbolLayer id="canonical-route-direction" style={{ symbolPlacement:'line', symbolSpacing:90, iconImage:'oneway', iconSize:0.8, iconRotationAlignment:'map', iconAllowOverlap:true, iconIgnorePlacement:true }} />
+            <ShapeSource
+              id="canonical-route"
+              shape={{
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: routePoints.map((point) => [point.longitude, point.latitude]),
+                },
+              }}
+            >
+              <LineLayer
+                id="canonical-route-line"
+                style={{ lineColor: colors.mapAccent, lineWidth: 5, lineOpacity: 0.88 }}
+              />
+              <SymbolLayer
+                id="canonical-route-direction"
+                style={{
+                  symbolPlacement: 'line',
+                  symbolSpacing: 90,
+                  iconImage: 'oneway',
+                  iconSize: 0.8,
+                  iconRotationAlignment: 'map',
+                  iconAllowOverlap: true,
+                  iconIgnorePlacement: true,
+                }}
+              />
             </ShapeSource>
           ) : null}
           <Camera ref={cameraRef} centerCoordinate={cameraCenter} zoomLevel={cameraZoom} />
           {/* Member Location Markers */}
           {locations.map((loc, index) => {
             const freshness = getLocationFreshness(loc.updatedAt, loc.sharingEnabled !== false);
-            const nearbyBefore = locations.slice(0, index).filter((other) => Math.abs(other.lat-loc.lat)<0.00007 && Math.abs(other.lng-loc.lng)<0.00007).length;
+            const nearbyBefore = locations
+              .slice(0, index)
+              .filter(
+                (other) =>
+                  Math.abs(other.lat - loc.lat) < 0.00007 &&
+                  Math.abs(other.lng - loc.lng) < 0.00007,
+              ).length;
             const angle = nearbyBefore * 2.4;
-            const coordinate: [number, number] = nearbyBefore ? [loc.lng + Math.cos(angle)*0.000035, loc.lat + Math.sin(angle)*0.000035] : [loc.lng, loc.lat];
+            const coordinate: [number, number] = nearbyBefore
+              ? [loc.lng + Math.cos(angle) * 0.000035, loc.lat + Math.sin(angle) * 0.000035]
+              : [loc.lng, loc.lat];
             const isRouteLeader = loc.uid === routeLeaderUserId;
 
             return (
-              <PointAnnotation
-                key={`loc_${loc.uid}`}
-                id={`loc_${loc.uid}`}
-                coordinate={coordinate}
-              >
+              <PointAnnotation key={`loc_${loc.uid}`} id={`loc_${loc.uid}`} coordinate={coordinate}>
                 <View
                   style={[
                     styles.memberMarker,
                     { borderColor: isRouteLeader ? colors.roleLeader : getMemberColor(loc.uid) },
                     freshness.state === 'delayed' && styles.delayedMarker,
-                    (freshness.state === 'stale' || freshness.state === 'sharing_off') && styles.staleMarker,
+                    (freshness.state === 'stale' || freshness.state === 'sharing_off') &&
+                      styles.staleMarker,
                   ]}
                 >
                   <View
@@ -122,10 +182,15 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
                       freshness.state === 'sharing_off' && styles.offAvatarCircle,
                     ]}
                   >
-                    {getMemberInitials(loc.displayName) ? <Text style={styles.avatarInitial}>{getMemberInitials(loc.displayName)}</Text> : <Ionicons name="person" size={13} color="#FFF" />}
+                    {getMemberInitials(loc.displayName) ? (
+                      <Text style={styles.avatarInitial}>{getMemberInitials(loc.displayName)}</Text>
+                    ) : (
+                      <Ionicons name="person" size={13} color="#FFF" />
+                    )}
                   </View>
                   <Text style={styles.markerNameBadge} numberOfLines={1}>
-                    {loc.displayName || 'Member'}{isRouteLeader ? ' · Leader' : ''}
+                    {loc.displayName || 'Member'}
+                    {isRouteLeader ? ' · Leader' : ''}
                   </Text>
                 </View>
 
@@ -136,10 +201,10 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
                       {freshness.state === 'fresh'
                         ? `🟢 ${freshness.label}`
                         : freshness.state === 'delayed'
-                        ? `🟡 ${freshness.label}`
-                        : freshness.state === 'sharing_off'
-                        ? `⚪ ${freshness.label}`
-                        : `⌛ ${freshness.label}`}
+                          ? `🟡 ${freshness.label}`
+                          : freshness.state === 'sharing_off'
+                            ? `⚪ ${freshness.label}`
+                            : `⌛ ${freshness.label}`}
                     </Text>
                   </View>
                 </Callout>
@@ -165,14 +230,16 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
                     isHighlighted && styles.highlightedStopMarker,
                   ]}
                 >
-                  <Ionicons name={isAuto ? 'timer-outline' : 'flag-outline'} size={19} color="#FFF" />
+                  <Ionicons
+                    name={isAuto ? 'timer-outline' : 'flag-outline'}
+                    size={19}
+                    color="#FFF"
+                  />
                 </View>
 
                 <Callout style={styles.stopCallout}>
                   <View style={styles.stopCalloutContainer}>
-                    <Text style={styles.stopCalloutTitle}>
-                      {stop.name}
-                    </Text>
+                    <Text style={styles.stopCalloutTitle}>{stop.name}</Text>
 
                     {stop.photoUrl ? (
                       <Image source={{ uri: stop.photoUrl }} style={styles.stopCalloutImage} />
@@ -202,19 +269,22 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
           </TouchableOpacity>
 
           {/* Mark a Stop FAB */}
-          {allowMarkStop !== false ? <TouchableOpacity
-            style={[styles.fabButton, styles.fabMarkStop]}
-            onPress={() => onMarkStop(userLocation?.lat, userLocation?.lng)}
-          >
-            <Ionicons name="flag-outline" size={18} color="#FFF" />
-            <Text style={styles.fabLabel}>Mark Stop</Text>
-          </TouchableOpacity> : null}
+          {allowMarkStop !== false ? (
+            <TouchableOpacity
+              style={[styles.fabButton, styles.fabMarkStop]}
+              onPress={() => onMarkStop(userLocation?.lat, userLocation?.lng)}
+            >
+              <Ionicons name="flag-outline" size={18} color="#FFF" />
+              <Text style={styles.fabLabel}>Mark Stop</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
-
       </View>
     );
-  }
+  },
 );
+
+MapLibreTripMap.displayName = 'MapLibreTripMap';
 
 const styles = StyleSheet.create({
   container: {

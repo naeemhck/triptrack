@@ -7,9 +7,10 @@ import { MapLibreTripMap } from './TripMapView';
 import { CameraTarget, MapProvider, TripMapProps, TripMapRef } from './mapTypes';
 
 const PROVIDER_KEY = '@triptrack_map_provider';
-const googleConfigured = Platform.OS === 'ios'
-  ? Boolean(process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY)
-  : Boolean(process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY);
+const googleConfigured =
+  Platform.OS === 'ios'
+    ? Boolean(process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY)
+    : Boolean(process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY);
 
 export const TripMap = forwardRef<TripMapRef, TripMapProps>((props, ref) => {
   const rendererRef = useRef<TripMapRef | null>(null);
@@ -27,9 +28,11 @@ export const TripMap = forwardRef<TripMapRef, TripMapProps>((props, ref) => {
 
   useEffect(() => {
     if (!googleConfigured) return;
-    AsyncStorage.getItem(PROVIDER_KEY).then((saved) => {
-      if (saved === 'google' && googleConfigured) setProvider('google');
-    }).catch(() => undefined);
+    AsyncStorage.getItem(PROVIDER_KEY)
+      .then((saved) => {
+        if (saved === 'google' && googleConfigured) setProvider('google');
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -61,26 +64,65 @@ export const TripMap = forwardRef<TripMapRef, TripMapProps>((props, ref) => {
   const Renderer = provider === 'google' ? GoogleTripMap : MapLibreTripMap;
   return (
     <View style={styles.wrapper}>
-      <Renderer key={provider} ref={rendererRef} {...props} initialCamera={camera} onCameraChange={setCamera} onMapLoaded={() => setGoogleLoaded(true)} />
+      <Renderer
+        key={provider}
+        ref={rendererRef}
+        {...props}
+        initialCamera={camera}
+        onCameraChange={setCamera}
+        onMapLoaded={() => setGoogleLoaded(true)}
+      />
       <View style={styles.switcher}>
         {(['maplibre', 'google'] as MapProvider[]).map((value) => (
-          <TouchableOpacity key={value} style={[styles.option, provider === value && styles.selected]} onPress={() => void selectProvider(value)}>
-            <Text style={[styles.label, provider === value && styles.selectedLabel]}>{value === 'maplibre' ? 'Open Map' : 'Google'}</Text>
+          <TouchableOpacity
+            key={value}
+            style={[styles.option, provider === value && styles.selected]}
+            onPress={() => void selectProvider(value)}
+          >
+            <Text style={[styles.label, provider === value && styles.selectedLabel]}>
+              {value === 'maplibre' ? 'Open Map' : 'Google'}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
-      {notice ? <View style={styles.notice}><Text style={styles.noticeText}>{notice}</Text></View> : null}
+      {notice ? (
+        <View style={styles.notice}>
+          <Text style={styles.noticeText}>{notice}</Text>
+        </View>
+      ) : null}
     </View>
   );
 });
 
+TripMap.displayName = 'TripMap';
+
 const styles = StyleSheet.create({
   wrapper: { position: 'relative' },
-  switcher: { position: 'absolute', top: 22, left: 12, flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 6, padding: 3, borderWidth: 1, borderColor: colors.border },
+  switcher: {
+    position: 'absolute',
+    top: 22,
+    left: 12,
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 6,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   option: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 4 },
   selected: { backgroundColor: colors.primary },
   label: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   selectedLabel: { color: '#FFF' },
-  notice: { position: 'absolute', top: 62, left: 12, right: 12, backgroundColor: colors.surface, borderColor: colors.warning, borderWidth: 1, borderRadius: 6, padding: 10 },
+  notice: {
+    position: 'absolute',
+    top: 62,
+    left: 12,
+    right: 12,
+    backgroundColor: colors.surface,
+    borderColor: colors.warning,
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 10,
+  },
   noticeText: { color: colors.textPrimary, fontSize: 12 },
 });

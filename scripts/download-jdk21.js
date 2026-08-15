@@ -13,7 +13,8 @@ if (fs.existsSync(path.join(destDir, 'bin', 'java.exe'))) {
 }
 
 fs.mkdirSync(destDir, { recursive: true });
-const apiUrl = 'https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/adoptium';
+const apiUrl =
+  'https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/adoptium';
 
 function download(url) {
   https.get(url, (res) => {
@@ -31,10 +32,16 @@ function download(url) {
       file.close(() => {
         console.log('Downloaded JDK 21 zip. Extracting...');
         try {
-          execSync(`powershell -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${tmpDir}' -Force"`, { stdio: 'inherit' });
+          execSync(
+            `powershell -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${tmpDir}' -Force"`,
+            { stdio: 'inherit' },
+          );
           const subdirs = fs.readdirSync(tmpDir);
           const extractedRoot = path.join(tmpDir, subdirs[0]);
-          execSync(`powershell -Command "Copy-Item -Path '${extractedRoot}\\*' -Destination '${destDir}' -Recurse -Force"`, { stdio: 'inherit' });
+          execSync(
+            `powershell -Command "Copy-Item -Path '${extractedRoot}\\*' -Destination '${destDir}' -Recurse -Force"`,
+            { stdio: 'inherit' },
+          );
           fs.rmSync(tmpDir, { recursive: true, force: true });
           fs.rmSync(zipPath, { force: true });
           console.log('Successfully installed JDK 21 at:', destDir);

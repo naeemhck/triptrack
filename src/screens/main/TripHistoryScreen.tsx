@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,7 +11,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useTrips } from '../../context/TripContext';
-import { Trip } from '../../types/trip';
 import { colors } from '../../theme/colors';
 import { formatTripDateRange } from '../../utils/dateFormat';
 
@@ -32,21 +31,23 @@ export const TripHistoryScreen: React.FC<TripHistoryScreenProps> = ({ navigation
         {/* Top Header */}
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={20} color={colors.textSecondary}/><Text style={styles.backBtnText}>Back</Text>
+            <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
+            <Text style={styles.backBtnText}>Back</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Trip History</Text>
           <View style={{ width: 60 }} />
         </View>
 
         <Text style={styles.subtitle}>
-          {completedTrips.length} completed {completedTrips.length === 1 ? 'trip' : 'trips'} · Read-only history
+          {completedTrips.length} completed {completedTrips.length === 1 ? 'trip' : 'trips'} ·
+          Read-only history
         </Text>
 
         {loadingTrips ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
         ) : completedTrips.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="archive-outline" size={38} color={colors.textMuted}/>
+            <Ionicons name="archive-outline" size={38} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>No Completed Trips Yet</Text>
             <Text style={styles.emptySub}>
               When your group trip ends, it will safely appear here as a read-only timeline.
@@ -82,7 +83,8 @@ export const TripHistoryScreen: React.FC<TripHistoryScreenProps> = ({ navigation
 
                   <View style={styles.cardFooter}>
                     <Text style={styles.memberTag}>
-                      {memberCount} Member{memberCount === 1 ? '' : 's'} {isOrganizer ? '· Organizer' : ''}
+                      {memberCount} Member{memberCount === 1 ? '' : 's'}{' '}
+                      {isOrganizer ? '· Organizer' : ''}
                     </Text>
                     <Text style={styles.viewHistoryText}>View Timeline & Map →</Text>
                   </View>
@@ -113,7 +115,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   backBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 44,
     backgroundColor: colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 6,

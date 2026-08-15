@@ -22,7 +22,8 @@ interface JoinTripScreenProps {
 
 export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigation }) => {
   const initialCode = route.params?.inviteCode || '';
-  const { getTripPreviewByCode, joinTripByCode, pendingInviteCode, setPendingInviteCode } = useTrips();
+  const { getTripPreviewByCode, joinTripByCode, pendingInviteCode, setPendingInviteCode } =
+    useTrips();
 
   const [code, setCode] = useState(initialCode || pendingInviteCode || '');
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -81,7 +82,6 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-
           {/* Top Back Navigation */}
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.backBtnText}>← Back to Trips</Text>
@@ -143,9 +143,7 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
 
               <View style={styles.divider} />
 
-              <Text style={styles.membersLabel}>
-                CURRENT MEMBERS ({preview.memberCount})
-              </Text>
+              <Text style={styles.membersLabel}>CURRENT MEMBERS ({preview.memberCount})</Text>
 
               <View style={styles.membersList}>
                 {preview.members.map((m, idx) => (
@@ -155,7 +153,9 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
                         {m.displayName ? m.displayName.charAt(0).toUpperCase() : 'M'}
                       </Text>
                     </View>
-                    <Text style={styles.memberName} numberOfLines={1}>{m.displayName}</Text>
+                    <Text style={styles.memberName} numberOfLines={1}>
+                      {m.displayName}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -173,7 +173,6 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
               </TouchableOpacity>
             </View>
           ) : null}
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

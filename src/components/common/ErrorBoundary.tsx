@@ -40,7 +40,8 @@ export class ErrorBoundary extends Component<Props, State> {
             </View>
             <Text style={styles.title}>Something Went Wrong</Text>
             <Text style={styles.subtitle}>
-              TripTrack encountered an unexpected error. Don't worry, your trip data and offline queue remain safe.
+              TripTrack encountered an unexpected error. Don't worry, your trip data and offline
+              queue remain safe.
             </Text>
 
             <TouchableOpacity style={styles.retryBtn} onPress={this.handleRestart}>

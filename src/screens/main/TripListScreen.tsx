@@ -21,39 +21,21 @@ interface TripListScreenProps {
 }
 
 export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) => {
-  const { user, signOutUser, deleteAccount, isMockMode } = useAuth();
+  const { user, signOutUser, isMockMode } = useAuth();
   const { trips, loadingTrips, pendingInviteCode } = useTrips();
 
   const handleSelectTrip = (trip: Trip) => {
     navigation.navigate('TripDetail', { tripId: trip.id, tripName: trip.name });
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account?',
-      'Deleting your account will stop location tracking, clear active state, and revoke access to all trips. This action is permanent.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Account',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteAccount();
-            } catch (e: any) {
-              Alert.alert('Error', e.message || 'Failed to delete account.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleSignOut = async () => {
     try {
       await signOutUser();
     } catch {
-      Alert.alert('Sign Out Failed', 'TripTrack could not securely sign out. Check your connection and try again.');
+      Alert.alert(
+        'Sign Out Failed',
+        'TripTrack could not securely sign out. Check your connection and try again.',
+      );
     }
   };
 
@@ -92,7 +74,9 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
           </View>
           <View style={styles.cardTitleBox}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.tripName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.tripName} numberOfLines={1}>
+                {item.name}
+              </Text>
               {statusBadge}
             </View>
             <Text style={styles.tripDates}>
@@ -108,7 +92,8 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
 
         <View style={styles.cardFooter}>
           <View style={styles.codeBadge}>
-            <Ionicons name="key-outline" size={14} color={colors.textSecondary} /><Text style={styles.codeBadgeText}>{item.inviteCode}</Text>
+            <Ionicons name="key-outline" size={14} color={colors.textSecondary} />
+            <Text style={styles.codeBadgeText}>{item.inviteCode}</Text>
           </View>
 
           <View style={styles.membersInfo}>
@@ -125,7 +110,6 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.container}>
-        
         {/* Header Bar */}
         <View style={styles.header}>
           <View style={styles.brandGroup}>
@@ -173,14 +157,16 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
               style={styles.joinHeaderBtn}
               onPress={() => navigation.navigate('TripHistory')}
             >
-              <Ionicons name="time-outline" size={17} color={colors.textSecondary} /><Text style={styles.joinHeaderBtnText}>History</Text>
+              <Ionicons name="time-outline" size={17} color={colors.textSecondary} />
+              <Text style={styles.joinHeaderBtnText}>History</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.joinHeaderBtn}
               onPress={() => navigation.navigate('JoinTrip')}
             >
-              <Ionicons name="key-outline" size={17} color={colors.textSecondary} /><Text style={styles.joinHeaderBtnText}>Join</Text>
+              <Ionicons name="key-outline" size={17} color={colors.textSecondary} />
+              <Text style={styles.joinHeaderBtnText}>Join</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -233,7 +219,6 @@ export const TripListScreen: React.FC<TripListScreenProps> = ({ navigation }) =>
             showsVerticalScrollIndicator={false}
           />
         )}
-
       </View>
     </SafeAreaView>
   );

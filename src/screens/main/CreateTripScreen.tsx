@@ -75,7 +75,6 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-
           {/* Top Back Navigation */}
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.backBtnText}>← Back to Trips</Text>
@@ -130,7 +129,8 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
                 </View>
 
                 <Text style={styles.helperText}>
-                  Location sharing will automatically activate for your group during these trip dates.
+                  Location sharing will automatically activate for your group during these trip
+                  dates.
                 </Text>
 
                 <TouchableOpacity
@@ -175,7 +175,6 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
               </View>
             </View>
           )}
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

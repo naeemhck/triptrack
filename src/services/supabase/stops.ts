@@ -33,7 +33,11 @@ export async function upsertStop(tripId: string, stop: TripStop): Promise<void> 
   throw error;
 }
 
-export async function assertStopExistsOwned(tripId: string, stopId: string, uid: string): Promise<void> {
+export async function assertStopExistsOwned(
+  tripId: string,
+  stopId: string,
+  uid: string,
+): Promise<void> {
   const { data, error } = await supabase
     .from('trip_stops')
     .select('id')
@@ -45,28 +49,42 @@ export async function assertStopExistsOwned(tripId: string, stopId: string, uid:
   if (!data) throw new Error('Photo upload is waiting for its parent stop to synchronize.');
 }
 
-export async function updateStop(tripId: string, stopId: string, fields: Partial<TripStop>): Promise<void> {
+export async function updateStop(
+  tripId: string,
+  stopId: string,
+  fields: Partial<TripStop>,
+): Promise<void> {
   const update: Record<string, unknown> = {};
   if (fields.name !== undefined) update.title = fields.name;
   if (fields.note !== undefined) update.note = fields.note;
   if (fields.departedAt !== undefined) update.departed_at = toIso(fields.departedAt);
   if (fields.photoPath !== undefined) update.photo_path = fields.photoPath;
-  const { error } = await supabase.from('trip_stops').update(update).eq('trip_id', tripId).eq('id', stopId);
+  const { error } = await supabase
+    .from('trip_stops')
+    .update(update)
+    .eq('trip_id', tripId)
+    .eq('id', stopId);
   if (error) throw error;
 }
 
 export async function listStops(tripId: string): Promise<TripStop[]> {
-  const { data, error } = await supabase.from('trip_stops').select('*, profiles(display_name,avatar_url)').eq('trip_id', tripId).order('created_at', { ascending: false });
+  const { data, error } = await supabase
+    .from('trip_stops')
+    .select('*, profiles(display_name,avatar_url)')
+    .eq('trip_id', tripId)
+    .order('created_at', { ascending: false });
   if (error) throw error;
-  return Promise.all((data || []).map(async (row) => {
-    const stop = mapStop(row);
-    if (!stop.photoPath) return stop;
+  return Promise.all(
+    (data || []).map(async (row) => {
+      const stop = mapStop(row);
+      if (!stop.photoPath) return stop;
 
-    try {
-      return { ...stop, photoUrl: await getStopPhotoUrl(stop.photoPath) };
-    } catch (photoError) {
-      console.error('[Stop Service] Failed to load an attached stop photo:', photoError);
-      return stop;
-    }
-  }));
+      try {
+        return { ...stop, photoUrl: await getStopPhotoUrl(stop.photoPath) };
+      } catch (photoError) {
+        console.error('[Stop Service] Failed to load an attached stop photo:', photoError);
+        return stop;
+      }
+    }),
+  );
 }

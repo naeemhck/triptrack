@@ -1,6 +1,6 @@
 /**
  * TripTrack Timeline Builder Utility
- * 
+ *
  * Derives a clean chronological timeline from existing durable Supabase models:
  * - Trip metadata (`startedAt`, `endedAt`, `name`)
  * - Trip stops (`createdAt` arrival, `departedAt` departure, `name`, `note`, `photoUrl`, `type`)
@@ -9,7 +9,8 @@
 import { Trip } from '../types/trip';
 import { TripStop } from '../types/location';
 
-export type TimelineItemType = 'trip_started' | 'stop_arrival' | 'stop_departure' | 'trip_completed';
+export type TimelineItemType =
+  'trip_started' | 'stop_arrival' | 'stop_departure' | 'trip_completed';
 
 export interface TimelineEvent {
   id: string;
@@ -81,7 +82,9 @@ export const buildTripTimeline = (trip: Trip, stops: TripStop[]): TimelineEvent[
 
   // 3. Trip Completed Event
   if (trip.endedAt || trip.status === 'completed') {
-    const endedTime = trip.endedAt || (stops.length ? Math.max(...stops.map((s) => s.departedAt || s.createdAt)) : Date.now());
+    const endedTime =
+      trip.endedAt ||
+      (stops.length ? Math.max(...stops.map((s) => s.departedAt || s.createdAt)) : Date.now());
     events.push({
       id: `completed_${trip.id}_${endedTime}`,
       type: 'trip_completed',

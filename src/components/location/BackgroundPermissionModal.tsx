@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  Modal,
-} from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Modal } from 'react-native';
 import { colors } from '../../theme/colors';
 
 interface BackgroundPermissionModalProps {
@@ -23,7 +17,6 @@ export const BackgroundPermissionModal: React.FC<BackgroundPermissionModalProps>
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.dialog}>
-          
           <View style={styles.iconCircle}>
             <Text style={styles.icon}>🛰️</Text>
           </View>
@@ -31,15 +24,16 @@ export const BackgroundPermissionModal: React.FC<BackgroundPermissionModalProps>
           <Text style={styles.title}>Enable Background Location Sharing?</Text>
 
           <Text style={styles.description}>
-            TripTrack needs <Text style={styles.highlight}>"Always Allow"</Text> location access so your trip group can see your live position even when your phone is locked or the app is in the background.
+            TripTrack needs <Text style={styles.highlight}>"Always Allow"</Text> location access so
+            your trip group can see your live position even when your phone is locked or the app is
+            in the background.
           </Text>
 
           <View style={styles.infoBox}>
             <Text style={styles.infoBoxTitle}>🔒 Privacy & Safety Defaults:</Text>
             <Text style={styles.infoBoxText}>
-              • Location sharing is strictly trip-scoped.{'\n'}
-              • Auto-disables when you turn off sharing or leave the trip.{'\n'}
-              • Battery-conscious 30s / 50m update interval.
+              • Location sharing is strictly trip-scoped.{'\n'}• Auto-disables when you turn off
+              sharing or leave the trip.{'\n'}• Battery-conscious 30s / 50m update interval.
             </Text>
           </View>
 
@@ -52,7 +46,6 @@ export const BackgroundPermissionModal: React.FC<BackgroundPermissionModalProps>
               <Text style={styles.foregroundBtnText}>Share Only While App is Open</Text>
             </TouchableOpacity>
           </View>
-
         </View>
       </View>
     </Modal>

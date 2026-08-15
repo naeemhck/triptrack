@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-} from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
@@ -17,14 +10,16 @@ export const HomeScreen: React.FC = () => {
     try {
       await signOutUser();
     } catch {
-      Alert.alert('Sign Out Failed', 'TripTrack could not securely sign out. Check your connection and try again.');
+      Alert.alert(
+        'Sign Out Failed',
+        'TripTrack could not securely sign out. Check your connection and try again.',
+      );
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.container}>
-        
         {/* Header Section */}
         <View style={styles.topBar}>
           <View style={styles.brandRow}>
@@ -43,7 +38,9 @@ export const HomeScreen: React.FC = () => {
         </View>
 
         {/* Backend status */}
-        <View style={[styles.statusBadge, isMockMode ? styles.statusBadgeDemo : styles.statusBadgeLive]}>
+        <View
+          style={[styles.statusBadge, isMockMode ? styles.statusBadgeDemo : styles.statusBadgeLive]}
+        >
           <Text style={styles.statusBadgeText}>
             {isMockMode ? 'Demo Auth Active' : 'Supabase Connected'}
           </Text>
@@ -59,7 +56,9 @@ export const HomeScreen: React.FC = () => {
             </View>
             <View style={styles.profileMeta}>
               <Text style={styles.userName}>{user?.name || 'Traveler User'}</Text>
-              <Text style={styles.userUid} numberOfLines={1}>UID: {user?.uid}</Text>
+              <Text style={styles.userUid} numberOfLines={1}>
+                UID: {user?.uid}
+              </Text>
             </View>
           </View>
 
@@ -98,7 +97,6 @@ export const HomeScreen: React.FC = () => {
             </View>
           </View>
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );

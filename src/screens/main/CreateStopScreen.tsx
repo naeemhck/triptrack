@@ -20,7 +20,11 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { Camera, MapView, PointAnnotation } from '@maplibre/maplibre-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { TripStop } from '../../types/location';
-import { enqueueStop, enqueueStopPhoto, processPendingSyncQueue } from '../../services/offlineSyncQueue';
+import {
+  enqueueStop,
+  enqueueStopPhoto,
+  processPendingSyncQueue,
+} from '../../services/offlineSyncQueue';
 import { colors } from '../../theme/colors';
 
 const OPENFREEMAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
@@ -37,7 +41,7 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
-  
+
   // Interactive coordinates for pin fine-tuning
   const [coords, setCoords] = useState<{ lat: number; lng: number }>({
     lat: initialLat || 37.7749,
@@ -55,7 +59,7 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
       if (status !== 'granted') {
         Alert.alert(
           'Photo Permission Denied',
-          'Photo library access is required to attach a photo to this stop. You can still mark the stop without a photo.'
+          'Photo library access is required to attach a photo to this stop. You can still mark the stop without a photo.',
         );
         return;
       }
@@ -70,11 +74,10 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const sourceUri = result.assets[0].uri;
         // Explicitly re-encode bytes to JPEG format via ImageManipulator
-        const manipulated = await ImageManipulator.manipulateAsync(
-          sourceUri,
-          [],
-          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-        );
+        const manipulated = await ImageManipulator.manipulateAsync(sourceUri, [], {
+          compress: 0.8,
+          format: ImageManipulator.SaveFormat.JPEG,
+        });
         setImageUri(manipulated.uri);
       }
     } catch (err) {
@@ -124,10 +127,10 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
         try {
           // Enqueue separate durable stop_photo upload
           await enqueueStopPhoto(tripId, user.uid, stableStopId, imageUri);
-        } catch (photoErr: any) {
+        } catch {
           Alert.alert(
             'Photo Queue Limit',
-            "Photo can't be queued until pending uploads sync. The stop will be created without the photo attachment."
+            "Photo can't be queued until pending uploads sync. The stop will be created without the photo attachment.",
           );
         }
       }
@@ -146,7 +149,8 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
     const trimmed = name.trim();
     if (/^\d{1,3}$/.test(trimmed)) {
       Alert.alert('Use this stop name?', `“${trimmed}” may be hard to recognize later.`, [
-        { text: 'Edit', style: 'cancel' }, { text: 'Use name', onPress: () => void submitStop() },
+        { text: 'Edit', style: 'cancel' },
+        { text: 'Use name', onPress: () => void submitStop() },
       ]);
       return;
     }
@@ -160,7 +164,6 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-
           {/* Top Bar Navigation */}
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.backBtnText}>← Cancel</Text>
@@ -169,7 +172,9 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
           <View style={styles.header}>
             <Ionicons name="flag-outline" size={34} color={colors.primaryAction} />
             <Text style={styles.title}>Mark a Stop</Text>
-            <Text style={styles.subtitle}>Notify your trip group about a hotel, cafe, or viewpoint</Text>
+            <Text style={styles.subtitle}>
+              Notify your trip group about a hotel, cafe, or viewpoint
+            </Text>
           </View>
 
           <View style={styles.card}>
@@ -234,10 +239,7 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
             {imageUri ? (
               <View style={styles.imagePreviewContainer}>
                 <Image source={{ uri: imageUri }} style={styles.imagePreview} />
-                <TouchableOpacity
-                  style={styles.removeImageBtn}
-                  onPress={() => setImageUri(null)}
-                >
+                <TouchableOpacity style={styles.removeImageBtn} onPress={() => setImageUri(null)}>
                   <Text style={styles.removeImageBtnText}>✕ Remove</Text>
                 </TouchableOpacity>
               </View>
@@ -263,9 +265,7 @@ export const CreateStopScreen: React.FC<CreateStopScreenProps> = ({ route, navig
                 <Text style={styles.primaryButtonText}>Mark Stop & Notify Group 🚩</Text>
               )}
             </TouchableOpacity>
-
           </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

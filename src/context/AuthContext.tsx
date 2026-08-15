@@ -5,8 +5,15 @@ import { supabase } from '../config/supabase';
 import { stopBackgroundLocationTracking } from '../services/backgroundLocation';
 import { disablePushTokensForCurrentUser } from '../services/notifications';
 import {
-  handleSupabaseAuthCallback, loadProfile, requestPasswordReset, sendEmailOtp,
-  signInWithPassword, signOut, signUpWithPassword, updatePassword, verifyEmailOtp,
+  handleSupabaseAuthCallback,
+  loadProfile,
+  requestPasswordReset,
+  sendEmailOtp,
+  signInWithPassword,
+  signOut,
+  signUpWithPassword,
+  updatePassword,
+  verifyEmailOtp,
 } from '../services/supabase/auth';
 import { AuthContextType, UserProfile } from '../types/auth';
 
@@ -22,7 +29,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let lastHandledAuthUrl: string | null = null;
     let sessionRevision = 0;
 
-    const applySession = async (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+    const applySession = async (
+      session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'],
+    ) => {
       const revision = ++sessionRevision;
       if (!active) return;
       if (!session?.user) {
@@ -131,7 +140,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await stopBackgroundLocationTracking();
       const { data, error } = await supabase.functions.invoke('delete-account', { body: {} });
       if (error) throw new Error(`Account deletion failed: ${error.message}`);
-      if (data?.success !== true) throw new Error('Account deletion failed: server did not confirm deletion.');
+      if (data?.success !== true)
+        throw new Error('Account deletion failed: server did not confirm deletion.');
       await signOut();
       setUser(null);
     } finally {
@@ -140,22 +150,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      isMockMode: false,
-      passwordRecovery,
-      signInWithEmailPassword,
-      createAccount,
-      sendPasswordReset,
-      completePasswordReset,
-      sendMagicLink,
-      sendPhoneOtp: unsupportedPhoneOtp,
-      verifyOtpCode,
-      signInAsDemoUser: unsupportedDemoLogin,
-      signOutUser,
-      deleteAccount,
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        isMockMode: false,
+        passwordRecovery,
+        signInWithEmailPassword,
+        createAccount,
+        sendPasswordReset,
+        completePasswordReset,
+        sendMagicLink,
+        sendPhoneOtp: unsupportedPhoneOtp,
+        verifyOtpCode,
+        signInAsDemoUser: unsupportedDemoLogin,
+        signOutUser,
+        deleteAccount,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -34,7 +34,7 @@ const NavigationContent: React.FC = () => {
     const parseDeepLink = (url: string | null) => {
       if (!url) return;
       const parsed = Linking.parse(url);
-      
+
       let inviteCode: string | null = null;
 
       if (parsed.hostname === 'join' && parsed.path) {

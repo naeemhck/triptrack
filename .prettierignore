@@ -1,0 +1,5 @@
+android/
+coverage/
+functions/
+node_modules/
+supabase/functions/

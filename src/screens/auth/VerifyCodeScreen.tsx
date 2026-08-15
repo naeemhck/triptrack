@@ -19,7 +19,7 @@ interface VerifyCodeScreenProps {
 }
 
 export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navigation }) => {
-  const { verificationId, phone, email, mode } = route.params || {};
+  const { phone, email, mode } = route.params || {};
   const { verifyOtpCode } = useAuth();
 
   const [code, setCode] = useState('');
@@ -49,7 +49,6 @@ export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navig
         style={styles.container}
       >
         <View style={styles.content}>
-
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Text style={styles.backButtonText}>← Back to Login</Text>
           </TouchableOpacity>
@@ -89,9 +88,7 @@ export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navig
               </View>
             ) : (
               <View style={styles.emailNoticeBox}>
-                <Text style={styles.emailNoticeText}>
-                  Checking for magic link sign-in token...
-                </Text>
+                <Text style={styles.emailNoticeText}>Checking for magic link sign-in token...</Text>
               </View>
             )}
 
@@ -103,13 +100,10 @@ export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navig
               {submitting ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
-                <Text style={styles.primaryButtonText}>
-                  Verify & Continue
-                </Text>
+                <Text style={styles.primaryButtonText}>Verify & Continue</Text>
               )}
             </TouchableOpacity>
           </View>
-
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

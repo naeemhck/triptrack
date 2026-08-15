@@ -7,7 +7,7 @@ export async function upsertLocation(
   userId: string,
   location: Partial<MemberLocation> & { sampledAt?: number },
   sampleId: string,
-  routeCandidate = false
+  routeCandidate = false,
 ): Promise<void> {
   const { error } = await supabase.rpc('submit_trip_location', {
     p_trip_id: tripId,
@@ -22,7 +22,10 @@ export async function upsertLocation(
 }
 
 export async function listLocations(tripId: string): Promise<MemberLocation[]> {
-  const { data, error } = await supabase.from('trip_locations').select('*, profiles(display_name,avatar_url), trip_members(sharing_enabled)').eq('trip_id', tripId);
+  const { data, error } = await supabase
+    .from('trip_locations')
+    .select('*, profiles(display_name,avatar_url), trip_members(sharing_enabled)')
+    .eq('trip_id', tripId);
   if (error) throw error;
   return (data || []).map(mapLocation);
 }

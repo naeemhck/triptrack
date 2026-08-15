@@ -15,8 +15,9 @@ export async function uploadStopPhoto(path: string, localUri: string): Promise<v
 }
 
 export async function getStopPhotoUrl(path: string): Promise<string> {
-  const { data, error } = await supabase.storage.from(STOP_PHOTO_BUCKET).createSignedUrl(path, 3600);
+  const { data, error } = await supabase.storage
+    .from(STOP_PHOTO_BUCKET)
+    .createSignedUrl(path, 3600);
   if (error) throw error;
   return data.signedUrl;
 }
-

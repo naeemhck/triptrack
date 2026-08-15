@@ -20,30 +20,32 @@ async function main() {
   const file = fs.createWriteStream(ZIP_PATH);
 
   await new Promise((resolve, reject) => {
-    https.get(ZIP_URL, (res) => {
-      if (res.statusCode !== 200) {
-        reject(new Error(`Failed to download: status code ${res.statusCode}`));
-        return;
-      }
-      let downloaded = 0;
-      const total = parseInt(res.headers['content-length'] || '0', 10);
-      res.on('data', (chunk) => {
-        downloaded += chunk.length;
-        if (total) {
-          process.stdout.write(`Downloading: ${((downloaded / total) * 100).toFixed(1)}%\r`);
+    https
+      .get(ZIP_URL, (res) => {
+        if (res.statusCode !== 200) {
+          reject(new Error(`Failed to download: status code ${res.statusCode}`));
+          return;
         }
-      });
-      res.pipe(file);
-      file.on('finish', () => {
-        file.close(() => {
-          console.log('\nDownload complete.');
-          resolve();
+        let downloaded = 0;
+        const total = parseInt(res.headers['content-length'] || '0', 10);
+        res.on('data', (chunk) => {
+          downloaded += chunk.length;
+          if (total) {
+            process.stdout.write(`Downloading: ${((downloaded / total) * 100).toFixed(1)}%\r`);
+          }
         });
+        res.pipe(file);
+        file.on('finish', () => {
+          file.close(() => {
+            console.log('\nDownload complete.');
+            resolve();
+          });
+        });
+      })
+      .on('error', (err) => {
+        fs.unlink(ZIP_PATH, () => {});
+        reject(err);
       });
-    }).on('error', (err) => {
-      fs.unlink(ZIP_PATH, () => {});
-      reject(err);
-    });
   });
 
   console.log('Extracting NDK zip...');
@@ -53,7 +55,10 @@ async function main() {
   }
   fs.mkdirSync(extractTemp, { recursive: true });
 
-  execSync(`powershell -Command "Expand-Archive -Path '${ZIP_PATH}' -DestinationPath '${extractTemp}' -Force"`, { stdio: 'inherit' });
+  execSync(
+    `powershell -Command "Expand-Archive -Path '${ZIP_PATH}' -DestinationPath '${extractTemp}' -Force"`,
+    { stdio: 'inherit' },
+  );
 
   console.log('Moving extracted NDK to destination...');
   const innerFolder = path.join(extractTemp, 'android-ndk-r27b');

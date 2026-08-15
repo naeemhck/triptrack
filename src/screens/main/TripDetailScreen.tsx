@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -53,7 +53,11 @@ import { Trip, TripMember } from '../../types/trip';
 import { MemberLocation, TripStop } from '../../types/location';
 import { devLog } from '../../utils/devLog';
 import { MemberRouteStatus, TripRoutePoint } from '../../types/route';
-import { listMemberRouteStatuses, listRoutePoints, setRouteLeader } from '../../services/supabase/routes';
+import {
+  listMemberRouteStatuses,
+  listRoutePoints,
+  setRouteLeader,
+} from '../../services/supabase/routes';
 import { subscribeToTripTable } from '../../services/supabase/realtime';
 import { MemberRow } from '../../components/trip/MemberRow';
 import { formatTripDateRange } from '../../utils/dateFormat';
@@ -69,7 +73,6 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
   const {
     trips,
     refreshTrips,
-    leaveTrip,
     listenToTripMembers,
     listenToTripLocations,
     listenToTripStops,
@@ -86,13 +89,13 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
   const [routeStatuses, setRouteStatuses] = useState<MemberRouteStatus[]>([]);
   const [memberFilter, setMemberFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
-  
+
   const [loadingData, setLoadingData] = useState<boolean>(true);
   const [togglingSharing, setTogglingSharing] = useState<boolean>(false);
   const [permState, setPermState] = useState<PermissionState>('denied');
   const [showBgModal, setShowBgModal] = useState<boolean>(false);
 
-  const [tickCount, setTickCount] = useState<number>(0);
+  const [, setTickCount] = useState<number>(0);
   const [pendingQueue, setPendingQueue] = useState<OfflineSyncItem[]>([]);
 
   const myMemberProfile = members.find((m) => m.uid === user?.uid);
@@ -111,7 +114,12 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
         if (!active) return;
 
         if (activeTrip.status === 'active' && isSharingEnabled && permState === 'granted-always') {
-          await startBackgroundLocationTracking(tripId, user, activeTrip.name, activeTrip.routeLeaderUserId);
+          await startBackgroundLocationTracking(
+            tripId,
+            user,
+            activeTrip.name,
+            activeTrip.routeLeaderUserId,
+          );
         } else if (running) {
           await stopBackgroundLocationTracking();
         }
@@ -120,14 +128,16 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
         if (active) {
           Alert.alert(
             'Background Location Error',
-            'TripTrack could not apply the current location permission. Turn sharing off and on to retry.'
+            'TripTrack could not apply the current location permission. Turn sharing off and on to retry.',
           );
         }
       }
     };
 
     void reconcileBackgroundTracking();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [activeTrip, isSharingEnabled, loadingData, myMemberProfile, permState, tripId, user]);
 
   // Refresh pending offline queue items
@@ -135,7 +145,7 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     try {
       const queue = await getOfflineQueue();
       setPendingQueue(queue);
-    } catch (e) {
+    } catch {
       // ignore
     }
   };
@@ -173,7 +183,9 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
 
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
-        devLog('🔄 [App Resumed] Refreshing OS location permission status & flushing offline queue...');
+        devLog(
+          '🔄 [App Resumed] Refreshing OS location permission status & flushing offline queue...',
+        );
         refreshPermissionState();
       }
     });
@@ -186,10 +198,13 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     if (!activeTrip || !tripId) return;
 
     const isCompleted = activeTrip.status === 'completed';
-    const isMember = user?.uid && activeTrip.memberIds ? activeTrip.memberIds.includes(user.uid) : true;
+    const isMember =
+      user?.uid && activeTrip.memberIds ? activeTrip.memberIds.includes(user.uid) : true;
 
     if (isCompleted || !isMember) {
-      devLog(`🧹 [Cross-Device Cleanup] Trip ${tripId} status is completed or member removed. Cleaning local state.`);
+      devLog(
+        `🧹 [Cross-Device Cleanup] Trip ${tripId} status is completed or member removed. Cleaning local state.`,
+      );
       cleanupActiveTripState(tripId, user?.uid);
     }
   }, [activeTrip?.status, activeTrip?.memberIds, tripId, user?.uid]);
@@ -224,18 +239,40 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     let mounted = true;
     const refreshRoute = async () => {
       try {
-        const [points, statuses] = await Promise.all([listRoutePoints(tripId), listMemberRouteStatuses(tripId)]);
+        const [points, statuses] = await Promise.all([
+          listRoutePoints(tripId),
+          listMemberRouteStatuses(tripId),
+        ]);
         if (__DEV__) console.log('[Route QA Tail]', points.slice(-6));
-        if (mounted) { setRoutePoints(points); setRouteStatuses(statuses); }
+        if (mounted) {
+          setRoutePoints(points);
+          setRouteStatuses(statuses);
+        }
       } catch {
         if (__DEV__) console.warn('[Route] Unable to refresh canonical route state.');
       }
     };
     void refreshRoute();
-    const unsubPoints = subscribeToTripTable('trip_route_points', tripId, () => void refreshRoute());
-    const unsubRoute = subscribeToTripTable('trip_routes', tripId, () => { void refreshTrips(); void refreshRoute(); });
-    const unsubStatuses = subscribeToTripTable('trip_member_route_status', tripId, () => void refreshRoute());
-    return () => { mounted = false; unsubPoints(); unsubRoute(); unsubStatuses(); };
+    const unsubPoints = subscribeToTripTable(
+      'trip_route_points',
+      tripId,
+      () => void refreshRoute(),
+    );
+    const unsubRoute = subscribeToTripTable('trip_routes', tripId, () => {
+      void refreshTrips();
+      void refreshRoute();
+    });
+    const unsubStatuses = subscribeToTripTable(
+      'trip_member_route_status',
+      tripId,
+      () => void refreshRoute(),
+    );
+    return () => {
+      mounted = false;
+      unsubPoints();
+      unsubRoute();
+      unsubStatuses();
+    };
   }, [refreshTrips, tripId]);
 
   // Handle Foreground Location Watcher (used when sharing is ON & permState is foreground-only or backup)
@@ -249,14 +286,26 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
       const lng = loc.coords.longitude;
       const accuracy = loc.coords.accuracy ?? undefined;
       setUserCoords({ lat, lng });
-      await enqueueLocation(tripId, user.uid, {
+      await enqueueLocation(
+        tripId,
+        user.uid,
+        {
+          lat,
+          lng,
+          accuracy,
+          sampledAt: loc.timestamp || Date.now(),
+        },
+        activeTrip?.routeLeaderUserId === user.uid,
+      );
+      void processPendingSyncQueue(user.uid);
+      await processLocationForStopDetection(
+        tripId,
+        user.uid,
+        user.name || 'Traveler',
         lat,
         lng,
         accuracy,
-        sampledAt: loc.timestamp || Date.now(),
-      }, activeTrip?.routeLeaderUserId === user.uid);
-      void processPendingSyncQueue(user.uid);
-      await processLocationForStopDetection(tripId, user.uid, user.name || 'Traveler', lat, lng, accuracy);
+      );
     };
 
     const startForegroundWatcher = async () => {
@@ -273,7 +322,11 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
             accuracy: Location.Accuracy.Balanced,
           });
         } catch (error) {
-          if (__DEV__) console.warn('[Location] Current position unavailable; trying the last known position.', error);
+          if (__DEV__)
+            console.warn(
+              '[Location] Current position unavailable; trying the last known position.',
+              error,
+            );
           initialLoc = await Location.getLastKnownPositionAsync();
         }
         if (initialLoc?.coords) {
@@ -295,7 +348,7 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
             void processForegroundSample(loc).catch(() => {
               if (__DEV__) console.warn('[Location] Unable to queue foreground sample.');
             });
-          }
+          },
         );
       } catch (err) {
         console.warn('Unable to start foreground location watcher:', err);
@@ -334,7 +387,7 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
             [
               { text: 'Cancel', style: 'cancel' },
               { text: 'Open OS Settings', onPress: () => Linking.openSettings() },
-            ]
+            ],
           );
           setTogglingSharing(false);
           return;
@@ -346,7 +399,12 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
 
         if (currentPermState === 'granted-always') {
           await toggleLocationSharing(tripId, true);
-          await startBackgroundLocationTracking(tripId, user, activeTrip?.name, activeTrip?.routeLeaderUserId);
+          await startBackgroundLocationTracking(
+            tripId,
+            user,
+            activeTrip?.name,
+            activeTrip?.routeLeaderUserId,
+          );
         } else {
           // Open pre-prompt explanation modal before requesting Always permission
           setShowBgModal(true);
@@ -361,10 +419,21 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     } catch (err) {
       console.error('Error toggling location sharing:', err);
       if (value) {
-        try { await stopBackgroundLocationTracking(); } catch { /* already reported below */ }
-        try { await toggleLocationSharing(tripId, false); } catch { /* preserve original error */ }
+        try {
+          await stopBackgroundLocationTracking();
+        } catch {
+          /* already reported below */
+        }
+        try {
+          await toggleLocationSharing(tripId, false);
+        } catch {
+          /* preserve original error */
+        }
       }
-      Alert.alert('Location Sharing Error', 'TripTrack could not update sharing. Check your connection and try again.');
+      Alert.alert(
+        'Location Sharing Error',
+        'TripTrack could not update sharing. Check your connection and try again.',
+      );
     } finally {
       setTogglingSharing(false);
     }
@@ -382,7 +451,12 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
 
       if (bgRes.status === 'granted' || updatedState === 'granted-always') {
         await toggleLocationSharing(tripId, true);
-        await startBackgroundLocationTracking(tripId, user, activeTrip?.name, activeTrip?.routeLeaderUserId);
+        await startBackgroundLocationTracking(
+          tripId,
+          user,
+          activeTrip?.name,
+          activeTrip?.routeLeaderUserId,
+        );
       } else {
         Alert.alert(
           'Always Location Not Granted',
@@ -390,7 +464,7 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
           [
             { text: 'OK', style: 'default' },
             { text: 'Open Settings', onPress: () => Linking.openSettings() },
-          ]
+          ],
         );
       }
       if (bgRes.status !== 'granted' && updatedState !== 'granted-always') {
@@ -398,9 +472,20 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
       }
     } catch (err) {
       console.error('Error requesting background location permission:', err);
-      try { await stopBackgroundLocationTracking(); } catch { /* already reported below */ }
-      try { await toggleLocationSharing(tripId, false); } catch { /* preserve original error */ }
-      Alert.alert('Location Sharing Error', 'TripTrack could not enable sharing. Check your connection and try again.');
+      try {
+        await stopBackgroundLocationTracking();
+      } catch {
+        /* already reported below */
+      }
+      try {
+        await toggleLocationSharing(tripId, false);
+      } catch {
+        /* preserve original error */
+      }
+      Alert.alert(
+        'Location Sharing Error',
+        'TripTrack could not enable sharing. Check your connection and try again.',
+      );
     }
   };
 
@@ -414,7 +499,10 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
       setPermState(updatedState);
       await toggleLocationSharing(tripId, true);
     } catch {
-      Alert.alert('Location Sharing Error', 'TripTrack could not enable sharing. Check your connection and try again.');
+      Alert.alert(
+        'Location Sharing Error',
+        'TripTrack could not enable sharing. Check your connection and try again.',
+      );
     }
   };
 
@@ -447,9 +535,15 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     try {
       await startTrip(tripId, user.uid);
       await refreshTrips();
-      Alert.alert('Trip Started 🚀', 'Your trip is now active! Members can enable location sharing.');
+      Alert.alert(
+        'Trip Started 🚀',
+        'Your trip is now active! Members can enable location sharing.',
+      );
     } catch (err: any) {
-      Alert.alert('Cannot Start Trip', err.message || 'You need an internet connection to start this trip.');
+      Alert.alert(
+        'Cannot Start Trip',
+        err.message || 'You need an internet connection to start this trip.',
+      );
     }
   };
 
@@ -469,11 +563,14 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
               await refreshTrips();
               Alert.alert('Trip Ended 🏁', 'The trip is now completed.');
             } catch (err: any) {
-              Alert.alert('Cannot End Trip', err.message || 'You need an internet connection to end this trip.');
+              Alert.alert(
+                'Cannot End Trip',
+                err.message || 'You need an internet connection to end this trip.',
+              );
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -482,7 +579,10 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     const isOrganizer = activeTrip.createdBy === user.uid;
 
     if (isOrganizer && activeTrip.status === 'active') {
-      Alert.alert('Organizer Notice', 'You are the trip organizer. Please end the trip before leaving.');
+      Alert.alert(
+        'Organizer Notice',
+        'You are the trip organizer. Please end the trip before leaving.',
+      );
       return;
     }
 
@@ -499,11 +599,14 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
               await leaveTripService(tripId, user.uid);
               navigation.navigate('TripList');
             } catch (err: any) {
-              Alert.alert('Cannot Leave Trip', err.message || 'You need an internet connection to leave this trip.');
+              Alert.alert(
+                'Cannot Leave Trip',
+                err.message || 'You need an internet connection to leave this trip.',
+              );
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -525,7 +628,7 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -568,31 +671,62 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
   };
 
   const handleMakeRouteLeader = (member: TripMember) => {
-    Alert.alert('Make Route Leader', `Use ${member.displayName} to extend the canonical trip route?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Confirm', onPress: async () => {
-        try { await setRouteLeader(tripId, member.uid); await refreshTrips(); }
-        catch (error: any) { Alert.alert('Route Leader Not Changed', error?.message || 'The member could not be matched safely to the route.'); }
-      } },
-    ]);
+    Alert.alert(
+      'Make Route Leader',
+      `Use ${member.displayName} to extend the canonical trip route?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            try {
+              await setRouteLeader(tripId, member.uid);
+              await refreshTrips();
+            } catch (error: any) {
+              Alert.alert(
+                'Route Leader Not Changed',
+                error?.message || 'The member could not be matched safely to the route.',
+              );
+            }
+          },
+        },
+      ],
+    );
   };
 
-  const allMemberRows = useMemo(() => members.map((member) => {
-    const location = locations.find((item) => item.uid === member.uid);
-    const freshness = getLocationFreshness(location?.updatedAt, member.sharingEnabled !== false, Date.now(), location?.sampledAt);
-    const active = freshness.state === 'fresh' || freshness.state === 'delayed';
-    return { member, freshness, active, routeStatus: routeStatuses.find((item) => item.userId === member.uid) };
-  }).sort((a, b) => {
-    const leaderOrder = Number(b.member.uid === activeTrip.routeLeaderUserId) - Number(a.member.uid === activeTrip.routeLeaderUserId);
-    if (leaderOrder) return leaderOrder;
-    const rank = (row: typeof a) => !row.active ? 3 : row.routeStatus?.state === 'OFF_ROUTE' ? 2 : 1;
-    const stateOrder = rank(a) - rank(b);
-    if (stateOrder) return stateOrder;
-    const bucketA = Math.round(Math.max(0, a.routeStatus?.deltaMeters ?? 0) / 25);
-    const bucketB = Math.round(Math.max(0, b.routeStatus?.deltaMeters ?? 0) / 25);
-    return bucketA - bucketB || a.member.joinedAt - b.member.joinedAt;
-  }), [activeTrip.routeLeaderUserId, locations, members, routeStatuses, tickCount]);
-  const memberRows = allMemberRows.filter((row) => memberFilter === 'all' || (memberFilter === 'active' ? row.active : !row.active));
+  const allMemberRows = members
+    .map((member) => {
+      const location = locations.find((item) => item.uid === member.uid);
+      const freshness = getLocationFreshness(
+        location?.updatedAt,
+        member.sharingEnabled !== false,
+        Date.now(),
+        location?.sampledAt,
+      );
+      const active = freshness.state === 'fresh' || freshness.state === 'delayed';
+      return {
+        member,
+        freshness,
+        active,
+        routeStatus: routeStatuses.find((item) => item.userId === member.uid),
+      };
+    })
+    .sort((a, b) => {
+      const leaderOrder =
+        Number(b.member.uid === activeTrip.routeLeaderUserId) -
+        Number(a.member.uid === activeTrip.routeLeaderUserId);
+      if (leaderOrder) return leaderOrder;
+      const rank = (row: typeof a) =>
+        !row.active ? 3 : row.routeStatus?.state === 'OFF_ROUTE' ? 2 : 1;
+      const stateOrder = rank(a) - rank(b);
+      if (stateOrder) return stateOrder;
+      const bucketA = Math.round(Math.max(0, a.routeStatus?.deltaMeters ?? 0) / 25);
+      const bucketB = Math.round(Math.max(0, b.routeStatus?.deltaMeters ?? 0) / 25);
+      return bucketA - bucketB || a.member.joinedAt - b.member.joinedAt;
+    });
+  const memberRows = allMemberRows.filter(
+    (row) => memberFilter === 'all' || (memberFilter === 'active' ? row.active : !row.active),
+  );
   const activeMemberCount = allMemberRows.filter((row) => row.active).length;
 
   // Determine sharing visual badge & state description
@@ -607,7 +741,8 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
       badgeStyle = styles.badgeAlways;
     } else {
       sharingTitle = 'Sharing (App Open Only) 🟡';
-      sharingSub = 'Live updates active while app is open. Upgrade to "Always" in Settings for background tracking.';
+      sharingSub =
+        'Live updates active while app is open. Upgrade to "Always" in Settings for background tracking.';
       badgeStyle = styles.badgeForeground;
     }
   }
@@ -615,7 +750,6 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.container}>
-
         {/* Pre-Prompt Background Location Explanation Modal */}
         <BackgroundPermissionModal
           visible={showBgModal}
@@ -628,7 +762,9 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
           <View style={styles.pendingSyncBanner}>
             <View style={styles.pendingSyncBannerTextGroup}>
               <Text style={styles.pendingSyncBannerTitle}>⌛ Pending Sync ({pendingCount})</Text>
-              <Text style={styles.pendingSyncBannerSub}>Offline changes will sync when connected.</Text>
+              <Text style={styles.pendingSyncBannerSub}>
+                Offline changes will sync when connected.
+              </Text>
             </View>
             <TouchableOpacity style={styles.syncRetryBtn} onPress={handleManualSyncRetry}>
               <Text style={styles.syncRetryBtnText}>Retry 🔄</Text>
@@ -638,10 +774,19 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
 
         {/* Top Bar */}
         <View style={styles.topBar}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('TripList')} accessibilityLabel="Back to My Trips">
-            <Ionicons name="arrow-back" size={20} color={colors.textSecondary} /><Text style={styles.backBtnText}>My Trips</Text>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => navigation.navigate('TripList')}
+            accessibilityLabel="Back to My Trips"
+          >
+            <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
+            <Text style={styles.backBtnText}>My Trips</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('TripSettings', { tripId })} accessibilityLabel="Trip Settings">
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => navigation.navigate('TripSettings', { tripId })}
+            accessibilityLabel="Trip Settings"
+          >
             <Ionicons name="settings-outline" size={21} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -656,7 +801,9 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
               </View>
             ) : null}
           </View>
-          <Text style={styles.tripDates}>{formatTripDateRange(activeTrip.startDate, activeTrip.endDate)}</Text>
+          <Text style={styles.tripDates}>
+            {formatTripDateRange(activeTrip.startDate, activeTrip.endDate)}
+          </Text>
 
           {/* Organizer Lifecycle Actions */}
           {isOrganizer ? (
@@ -680,7 +827,8 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
           <View style={styles.plannedNoticeCard}>
             <Text style={styles.plannedNoticeTitle}>Trip Planned 📝</Text>
             <Text style={styles.plannedNoticeSub}>
-              Members can view trip details. Live location sharing starts when the organizer taps "Start Trip".
+              Members can view trip details. Live location sharing starts when the organizer taps
+              "Start Trip".
             </Text>
           </View>
         ) : null}
@@ -690,7 +838,8 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
           <View style={styles.completedNoticeCard}>
             <Text style={styles.completedNoticeTitle}>Trip Completed 🏁</Text>
             <Text style={styles.completedNoticeSub}>
-              This trip is now finished. Location sharing is disabled and all details are preserved as a read-only history item.
+              This trip is now finished. Location sharing is disabled and all details are preserved
+              as a read-only history item.
             </Text>
           </View>
         ) : null}
@@ -717,14 +866,14 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
         ) : null}
 
         {/* Permission Info & OS Settings Link Row */}
-        {activeTrip.status === 'active' && isSharingEnabled && permState === 'granted-foreground-only' ? (
-          <TouchableOpacity
-            style={styles.settingsNoticeRow}
-            onPress={() => Linking.openSettings()}
-          >
+        {activeTrip.status === 'active' &&
+        isSharingEnabled &&
+        permState === 'granted-foreground-only' ? (
+          <TouchableOpacity style={styles.settingsNoticeRow} onPress={() => Linking.openSettings()}>
             <Text style={styles.settingsNoticeIcon}>⚙️</Text>
             <Text style={styles.settingsNoticeText}>
-              Want background updates when locked? Tap to open OS Settings and set location to "Always".
+              Want background updates when locked? Tap to open OS Settings and set location to
+              "Always".
             </Text>
           </TouchableOpacity>
         ) : null}
@@ -751,15 +900,18 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
         />
 
         {/* Shareable Invite Code Banner */}
-        {activeTrip.status === 'active' ? <View style={styles.inviteBanner}>
-          <View style={styles.inviteInfo}>
-            <Text style={styles.inviteLabel}>TRIP INVITE CODE</Text>
-            <Text style={styles.inviteCode}>{activeTrip.inviteCode}</Text>
+        {activeTrip.status === 'active' ? (
+          <View style={styles.inviteBanner}>
+            <View style={styles.inviteInfo}>
+              <Text style={styles.inviteLabel}>TRIP INVITE CODE</Text>
+              <Text style={styles.inviteCode}>{activeTrip.inviteCode}</Text>
+            </View>
+            <TouchableOpacity style={styles.shareBtn} onPress={handleShareInvite}>
+              <Ionicons name="share-outline" size={18} color="#FFF" />
+              <Text style={styles.shareBtnText}>Share code</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.shareBtn} onPress={handleShareInvite}>
-            <Ionicons name="share-outline" size={18} color="#FFF" /><Text style={styles.shareBtnText}>Share code</Text>
-          </TouchableOpacity>
-        </View> : null}
+        ) : null}
 
         {/* Stop History List Component */}
         <StopHistoryList
@@ -782,19 +934,32 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
         {/* Member List Section */}
         <View style={styles.membersSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              Trip Members ({members.length})
-            </Text>
+            <Text style={styles.sectionTitle}>Trip Members ({members.length})</Text>
             <Text style={styles.realtimeTag}>Realtime sync</Text>
           </View>
 
           <View style={styles.memberFilters}>
             {(['all', 'active', 'inactive'] as const).map((filter) => (
-              <TouchableOpacity key={filter}
-                style={[styles.memberFilter, memberFilter === filter && styles.memberFilterSelected]}
-                onPress={() => setMemberFilter(filter)}>
-                <Text style={[styles.memberFilterText, memberFilter === filter && styles.memberFilterTextSelected]}>
-                  {filter.charAt(0).toUpperCase()+filter.slice(1)} {filter === 'all' ? members.length : filter === 'active' ? activeMemberCount : members.length-activeMemberCount}
+              <TouchableOpacity
+                key={filter}
+                style={[
+                  styles.memberFilter,
+                  memberFilter === filter && styles.memberFilterSelected,
+                ]}
+                onPress={() => setMemberFilter(filter)}
+              >
+                <Text
+                  style={[
+                    styles.memberFilterText,
+                    memberFilter === filter && styles.memberFilterTextSelected,
+                  ]}
+                >
+                  {filter.charAt(0).toUpperCase() + filter.slice(1)}{' '}
+                  {filter === 'all'
+                    ? members.length
+                    : filter === 'active'
+                      ? activeMemberCount
+                      : members.length - activeMemberCount}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -807,7 +972,21 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
               {memberRows.map(({ member, freshness, routeStatus }) => {
                 const isMe = member.uid === user?.uid;
                 const isHost = member.uid === activeTrip.createdBy;
-                return <MemberRow key={member.uid} member={member} freshness={freshness} routeStatus={routeStatus} isMe={isMe} isHost={isHost} isRouteLeader={member.uid===activeTrip.routeLeaderUserId} completed={activeTrip.status==='completed'} canManage={isOrganizer&&activeTrip.status!=='completed'} onMakeLeader={()=>handleMakeRouteLeader(member)} onRemove={()=>handleRemoveMember(member)}/>;
+                return (
+                  <MemberRow
+                    key={member.uid}
+                    member={member}
+                    freshness={freshness}
+                    routeStatus={routeStatus}
+                    isMe={isMe}
+                    isHost={isHost}
+                    isRouteLeader={member.uid === activeTrip.routeLeaderUserId}
+                    completed={activeTrip.status === 'completed'}
+                    canManage={isOrganizer && activeTrip.status !== 'completed'}
+                    onMakeLeader={() => handleMakeRouteLeader(member)}
+                    onRemove={() => handleRemoveMember(member)}
+                  />
+                );
               })}
             </View>
           )}
@@ -815,9 +994,11 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
 
         <View style={styles.tripActionsSection}>
           <Text style={styles.tripActionsTitle}>Trip actions</Text>
-          <TouchableOpacity style={styles.leaveBtn} onPress={handleLeaveTrip}><Ionicons name="exit-outline" size={19} color={colors.critical}/><Text style={styles.leaveBtnText}>Leave trip</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.leaveBtn} onPress={handleLeaveTrip}>
+            <Ionicons name="exit-outline" size={19} color={colors.critical} />
+            <Text style={styles.leaveBtnText}>Leave trip</Text>
+          </TouchableOpacity>
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -854,7 +1035,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  settingsButton: { width: 44, height: 44, borderRadius: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  settingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   leaveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1057,8 +1247,18 @@ const styles = StyleSheet.create({
     padding: 3,
     marginBottom: 14,
   },
-  tripActionsSection: { marginTop: 28, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border },
-  tripActionsTitle: { color: colors.textSecondary, fontSize: 13, fontWeight: '700', marginBottom: 10 },
+  tripActionsSection: {
+    marginTop: 28,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  tripActionsTitle: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
   memberFilter: {
     flex: 1,
     minHeight: 36,

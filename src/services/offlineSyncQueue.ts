@@ -1,9 +1,9 @@
 /**
  * TripTrack Application-Owned Offline Synchronization Queue Service
- * 
+ *
  * ARCHITECTURE & RELIABILITY MODEL:
  * TripTrack uses a Write-Ahead Queue strategy (Local durable state first -> remote sync second -> ack/removal last).
- * 
+ *
  * KEY FEATURES:
  * 1. Operation Types: `latest_location`, `manual_stop`, `auto_stop`, `stop_update`, `stop_photo`
  * 2. Coalesced Live Location: Keyed by `tripId + uid` (1 pending sample per trip/user; newest sample replaces older)
@@ -41,11 +41,7 @@ export type OfflineOperationType =
   | 'stop_photo';
 
 export type SyncItemStatus =
-  | 'pending'
-  | 'processing'
-  | 'synced'
-  | 'failed'
-  | 'manual_retry_required';
+  'pending' | 'processing' | 'synced' | 'failed' | 'manual_retry_required';
 
 export interface OfflineSyncItem {
   id: string;
@@ -71,7 +67,9 @@ let isWorkerRunning = false;
 /**
  * Execute a serialized queue mutation safely
  */
-const runSerializedMutation = <T>(mutationFn: (queue: OfflineSyncItem[]) => Promise<{ updatedQueue: OfflineSyncItem[]; result: T }>): Promise<T> => {
+const runSerializedMutation = <T>(
+  mutationFn: (queue: OfflineSyncItem[]) => Promise<{ updatedQueue: OfflineSyncItem[]; result: T }>,
+): Promise<T> => {
   const nextPromise = mutationChain.then(async () => {
     try {
       const raw = await AsyncStorage.getItem(ASYNC_QUEUE_KEY);
@@ -82,7 +80,7 @@ const runSerializedMutation = <T>(mutationFn: (queue: OfflineSyncItem[]) => Prom
           if (Array.isArray(parsed)) {
             // Filter malformed records
             queue = parsed.filter(
-              (item) => item && item.id && item.operationType && item.tripId && item.uid
+              (item) => item && item.id && item.operationType && item.tripId && item.uid,
             );
           }
         } catch (e) {
@@ -110,12 +108,9 @@ export const getOfflineQueue = async (): Promise<OfflineSyncItem[]> => {
   return runSerializedMutation(async (queue) => {
     // Reclaim expired processing leases on load
     const now = Date.now();
-    let modified = false;
-
     const cleaned = queue.map((item) => {
       if (item.status === 'processing' && item.leaseExpiresAt && now > item.leaseExpiresAt) {
         devLog(`⏳ [Sync Queue] Reclaimed expired processing lease for item ${item.id}`);
-        modified = true;
         return {
           ...item,
           status: 'pending' as SyncItemStatus,
@@ -138,7 +133,7 @@ export const enqueueLocation = async (
   tripId: string,
   uid: string,
   locationData: Partial<MemberLocation> & { sampledAt?: number },
-  isRouteLeader = false
+  isRouteLeader = false,
 ): Promise<void> => {
   return runSerializedMutation(async (queue) => {
     const now = Date.now();
@@ -184,7 +179,7 @@ export const enqueueStop = async (
   uid: string,
   stopData: TripStop,
   operationType: 'manual_stop' | 'auto_stop',
-  localPhotoUri?: string
+  localPhotoUri?: string,
 ): Promise<void> => {
   return runSerializedMutation(async (queue) => {
     const now = Date.now();
@@ -226,7 +221,7 @@ export const enqueueStopUpdate = async (
   tripId: string,
   uid: string,
   stopId: string,
-  updateFields: Partial<TripStop>
+  updateFields: Partial<TripStop>,
 ): Promise<void> => {
   return runSerializedMutation(async (queue) => {
     const now = Date.now();
@@ -269,7 +264,7 @@ export const enqueueStopPhoto = async (
   tripId: string,
   uid: string,
   stopId: string,
-  localPhotoUri: string
+  localPhotoUri: string,
 ): Promise<void> => {
   await FileSystem.makeDirectoryAsync(PENDING_MEDIA_DIRECTORY, { intermediates: true });
   const normalized = await ImageManipulator.manipulateAsync(localPhotoUri, [], {
@@ -283,25 +278,27 @@ export const enqueueStopPhoto = async (
     return await runSerializedMutation(async (queue) => {
       const pendingPhotoCount = queue.filter((i) => i.operationType === 'stop_photo').length;
       if (pendingPhotoCount >= MAX_PENDING_PHOTOS) {
-        devWarn(`⚠️ [Sync Queue] Pending photo limit (${MAX_PENDING_PHOTOS}) reached. Deferring new photo queuing.`);
+        devWarn(
+          `⚠️ [Sync Queue] Pending photo limit (${MAX_PENDING_PHOTOS}) reached. Deferring new photo queuing.`,
+        );
         throw new Error("Photo can't be queued until pending uploads sync.");
       }
 
-    const now = Date.now();
-    const itemId = `photo_${stopId}`;
+      const now = Date.now();
+      const itemId = `photo_${stopId}`;
 
-    const photoItem: OfflineSyncItem = {
-      id: itemId,
-      operationType: 'stop_photo',
-      tripId,
-      uid,
-      createdAt: now,
-      attempts: 0,
-      nextRetryAt: now,
-      status: 'pending',
-      localPhotoUri: durablePhotoUri,
-      payload: { stopId, photoUploaded: false, remotePath: null },
-    };
+      const photoItem: OfflineSyncItem = {
+        id: itemId,
+        operationType: 'stop_photo',
+        tripId,
+        uid,
+        createdAt: now,
+        attempts: 0,
+        nextRetryAt: now,
+        status: 'pending',
+        localPhotoUri: durablePhotoUri,
+        payload: { stopId, photoUploaded: false, remotePath: null },
+      };
 
       devLog(`📥 [Sync Queue] Enqueued stop_photo for stop ${stopId}`);
       return { updatedQueue: [...queue, photoItem], result: undefined };
@@ -319,8 +316,12 @@ export const clearTripQueueForUser = async (tripId: string, uid: string): Promis
   return runSerializedMutation(async (queue) => {
     // Cancel transient live_location items for departed trip; retain durable manual stops in conflict state if needed
     const updated = queue.filter(
-      (item) => !(item.tripId === tripId && item.uid === uid &&
-        (item.operationType === 'latest_location' || item.operationType === 'leader_route_sample'))
+      (item) =>
+        !(
+          item.tripId === tripId &&
+          item.uid === uid &&
+          (item.operationType === 'latest_location' || item.operationType === 'leader_route_sample')
+        ),
     );
     return { updatedQueue: updated, result: undefined };
   });
@@ -332,25 +333,39 @@ export const clearTripQueueForUser = async (tripId: string, uid: string): Promis
 const syncSingleItem = async (item: OfflineSyncItem, currentUid: string): Promise<boolean> => {
   // Validate ownership
   if (item.uid !== currentUid) {
-    devLog(`⚠️ [Sync Queue] User mismatch for item ${item.id} (item uid: ${item.uid}, current uid: ${currentUid}). Skipping.`);
+    devLog(
+      `⚠️ [Sync Queue] User mismatch for item ${item.id} (item uid: ${item.uid}, current uid: ${currentUid}). Skipping.`,
+    );
     return false;
   }
 
   const { operationType, tripId, payload, localPhotoUri } = item;
 
   if (operationType === 'latest_location') {
-    await upsertLocation(tripId, item.uid, {
-      ...payload,
-      sampledAt: item.sampledAt || payload.sampledAt || Date.now(),
-    }, payload.sampleId, false);
+    await upsertLocation(
+      tripId,
+      item.uid,
+      {
+        ...payload,
+        sampledAt: item.sampledAt || payload.sampledAt || Date.now(),
+      },
+      payload.sampleId,
+      false,
+    );
     return true;
   }
 
   if (operationType === 'leader_route_sample') {
-    await upsertLocation(tripId, item.uid, {
-      ...payload,
-      sampledAt: item.sampledAt || payload.sampledAt || Date.now(),
-    }, payload.sampleId, true);
+    await upsertLocation(
+      tripId,
+      item.uid,
+      {
+        ...payload,
+        sampledAt: item.sampledAt || payload.sampledAt || Date.now(),
+      },
+      payload.sampleId,
+      true,
+    );
     return true;
   }
 
@@ -379,9 +394,11 @@ const syncSingleItem = async (item: OfflineSyncItem, currentUid: string): Promis
       remotePath = stopPhotoPath(tripId, stopId);
       await uploadStopPhoto(remotePath, localPhotoUri);
       await runSerializedMutation(async (queue) => ({
-        updatedQueue: queue.map((queued) => queued.id === item.id
-          ? { ...queued, payload: { ...queued.payload, photoUploaded: true, remotePath } }
-          : queued),
+        updatedQueue: queue.map((queued) =>
+          queued.id === item.id
+            ? { ...queued, payload: { ...queued.payload, photoUploaded: true, remotePath } }
+            : queued,
+        ),
         result: undefined,
       }));
     }
@@ -420,7 +437,7 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
         (!currentUid || item.uid === currentUid) &&
         (item.status === 'pending' || item.status === 'failed') &&
         now >= item.nextRetryAt &&
-        item.attempts < MAX_ATTEMPTS
+        item.attempts < MAX_ATTEMPTS,
     );
 
     if (readyItems.length === 0) {
@@ -444,7 +461,8 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
 
     for (const item of readyItems) {
       // Lease item (use 180s for media uploads, 60s for standard operations)
-      const leaseMs = item.operationType === 'stop_photo' ? MEDIA_LEASE_DURATION_MS : LEASE_DURATION_MS;
+      const leaseMs =
+        item.operationType === 'stop_photo' ? MEDIA_LEASE_DURATION_MS : LEASE_DURATION_MS;
       await runSerializedMutation(async (q) => {
         const idx = q.findIndex((i) => i.id === item.id);
         if (idx >= 0) {
@@ -469,18 +487,19 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
           devLog(`✅ [Sync Queue Worker] Item ${item.id} successfully synchronized.`);
         }
       } catch (err: unknown) {
-        const errorMessage = err instanceof Error
-          ? err.message
-          : typeof err === 'object' && err !== null && 'message' in err
-            ? String(err.message)
-            : String(err || 'Sync error');
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : typeof err === 'object' && err !== null && 'message' in err
+              ? String(err.message)
+              : String(err || 'Sync error');
         devWarn(`[Sync Queue Worker] Deferred item ${item.id}: ${errorMessage}`);
 
         // Bounded exponential backoff
         const nextAttempts = item.attempts + 1;
         const delay = Math.min(
           SYNC_INITIAL_RETRY_MS * Math.pow(2, nextAttempts - 1),
-          SYNC_MAX_RETRY_MS
+          SYNC_MAX_RETRY_MS,
         );
         const nextStatus: SyncItemStatus =
           nextAttempts >= MAX_ATTEMPTS ? 'manual_retry_required' : 'failed';
@@ -502,7 +521,8 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
       }
     }
   } catch (globalErr) {
-    const errorMessage = globalErr instanceof Error ? globalErr.message : String(globalErr || 'Sync error');
+    const errorMessage =
+      globalErr instanceof Error ? globalErr.message : String(globalErr || 'Sync error');
     devWarn(`[Sync Queue Worker] Processor deferred: ${errorMessage}`);
   } finally {
     isWorkerRunning = false;

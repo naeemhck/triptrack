@@ -3,6 +3,7 @@
 .metro.*.log
 metro*.log
 dist/
+coverage/
 web-build/
 node_modules/
 

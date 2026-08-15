@@ -13,24 +13,16 @@
       "resizeMode": "contain",
       "backgroundColor": "#0F172A"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.triptrack.app",
-      "associatedDomains": [
-        "applinks:triptrack.app"
-      ],
+      "associatedDomains": ["applinks:triptrack.app"],
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "TripTrack needs your location to share with your trip group while a trip is active.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "TripTrack needs background location updates to automatically keep your trip group updated on your live location and detect stops.",
         "NSPhotoLibraryUsageDescription": "TripTrack needs photo library access to attach photos to your marked trip stops.",
-        "UIBackgroundModes": [
-          "location",
-          "fetch",
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
       }
     },
     "android": {
@@ -50,10 +42,7 @@
               "pathPrefix": "/join"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
       "permissions": [

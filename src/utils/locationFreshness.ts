@@ -1,11 +1,11 @@
 /**
  * TripTrack Location Freshness & Connectivity Formatter
- * 
+ *
  * CONFIGURABLE THRESHOLDS:
  * - LOCATION_DELAYED_AFTER_MS: 2 minutes (120,000ms)
  * - LOCATION_STALE_AFTER_MS: 5 minutes (300,000ms)
  * - LOCATION_ALERT_AFTER_MS: 10 minutes (600,000ms - Cloud Function stale push eligibility)
- * 
+ *
  * TIMESTAMP SEMANTICS:
  * - sampledAt: GPS coordinate fix time on device (used for physical coordinate freshness display)
  * - updatedAt: database receipt time
@@ -49,7 +49,7 @@ export const getLocationFreshness = (
   rawUpdatedAt?: any,
   sharingEnabled: boolean = true,
   now: number = Date.now(),
-  rawSampledAt?: any
+  rawSampledAt?: any,
 ): LocationFreshnessResult => {
   const normUpdated = normalizeTimestamp(rawUpdatedAt);
   let normSampled = normalizeTimestamp(rawSampledAt);

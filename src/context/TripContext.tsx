@@ -32,7 +32,10 @@ interface TripContextType {
   listenToTripMembers: (tripId: string, callback: (members: TripMember[]) => void) => () => void;
   updateMemberLocation: (tripId: string, lat: number, lng: number) => Promise<void>;
   toggleLocationSharing: (tripId: string, enabled: boolean) => Promise<void>;
-  listenToTripLocations: (tripId: string, callback: (locations: MemberLocation[]) => void) => () => void;
+  listenToTripLocations: (
+    tripId: string,
+    callback: (locations: MemberLocation[]) => void,
+  ) => () => void;
   listenToTripStops: (tripId: string, callback: (stops: TripStop[]) => void) => () => void;
 }
 
@@ -100,19 +103,30 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     void refresh();
     const unsubscribe = subscribeToTripTable('trip_members', tripId, () => void refresh());
-    return () => { active = false; unsubscribe(); };
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   };
 
   const updateMemberLocation = async (tripId: string, lat: number, lng: number) => {
     if (!user) throw new Error('Authentication required.');
-    await upsertLocation(tripId, user.uid, { lat, lng, accuracy: 50, sampledAt: Date.now() }, Crypto.randomUUID());
+    await upsertLocation(
+      tripId,
+      user.uid,
+      { lat, lng, accuracy: 50, sampledAt: Date.now() },
+      Crypto.randomUUID(),
+    );
   };
 
   const toggleLocationSharing = async (tripId: string, enabled: boolean) => {
     await setSharing(tripId, enabled, enabled ? 'always' : 'off');
   };
 
-  const listenToTripLocations = (tripId: string, callback: (locations: MemberLocation[]) => void) => {
+  const listenToTripLocations = (
+    tripId: string,
+    callback: (locations: MemberLocation[]) => void,
+  ) => {
     let active = true;
     const refresh = async () => {
       try {
@@ -124,7 +138,10 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     void refresh();
     const unsubscribe = subscribeToTripTable('trip_locations', tripId, () => void refresh());
-    return () => { active = false; unsubscribe(); };
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   };
 
   const listenToTripStops = (tripId: string, callback: (stops: TripStop[]) => void) => {
@@ -139,27 +156,32 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     void refresh();
     const unsubscribe = subscribeToTripTable('trip_stops', tripId, () => void refresh());
-    return () => { active = false; unsubscribe(); };
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   };
 
   return (
-    <TripContext.Provider value={{
-      trips,
-      loadingTrips,
-      pendingInviteCode,
-      setPendingInviteCode,
-      refreshTrips,
-      createTrip,
-      getTripPreviewByCode: getTripPreview,
-      joinTripByCode,
-      leaveTrip,
-      getTripMembers: listMembers,
-      listenToTripMembers,
-      updateMemberLocation,
-      toggleLocationSharing,
-      listenToTripLocations,
-      listenToTripStops,
-    }}>
+    <TripContext.Provider
+      value={{
+        trips,
+        loadingTrips,
+        pendingInviteCode,
+        setPendingInviteCode,
+        refreshTrips,
+        createTrip,
+        getTripPreviewByCode: getTripPreview,
+        joinTripByCode,
+        leaveTrip,
+        getTripMembers: listMembers,
+        listenToTripMembers,
+        updateMemberLocation,
+        toggleLocationSharing,
+        listenToTripLocations,
+        listenToTripStops,
+      }}
+    >
       {children}
     </TripContext.Provider>
   );

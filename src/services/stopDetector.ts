@@ -1,6 +1,6 @@
 /**
  * TripTrack Automatic Dwell-Time Stop Detector Service
- * 
+ *
  * ALGORITHM & THRESHOLDS:
  * - Candidate Dwell Radius: 75 meters (STOP_RADIUS_METERS)
  * - Candidate Reset: If movement > 75m before 5 minutes, reset candidate
@@ -52,7 +52,7 @@ export const getDistanceMeters = (
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number => {
   const R = 6371000; // Earth's radius in meters
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -76,11 +76,17 @@ export const processLocationForStopDetection = async (
   displayName: string,
   lat: number,
   lng: number,
-  accuracy?: number
+  accuracy?: number,
 ): Promise<TripStop | null> => {
   // 1. GPS Accuracy Filter: ignore samples with accuracy worse than 100m
-  if (accuracy !== undefined && accuracy !== null && accuracy > MAX_USABLE_LOCATION_ACCURACY_METERS) {
-    devLog(`⚠️ [Stop Detector] Ignored inaccurate location sample (accuracy: ${accuracy.toFixed(1)}m > ${MAX_USABLE_LOCATION_ACCURACY_METERS}m)`);
+  if (
+    accuracy !== undefined &&
+    accuracy !== null &&
+    accuracy > MAX_USABLE_LOCATION_ACCURACY_METERS
+  ) {
+    devLog(
+      `⚠️ [Stop Detector] Ignored inaccurate location sample (accuracy: ${accuracy.toFixed(1)}m > ${MAX_USABLE_LOCATION_ACCURACY_METERS}m)`,
+    );
     return null;
   }
 
@@ -94,9 +100,12 @@ export const processLocationForStopDetection = async (
       try {
         const parsed = JSON.parse(rawState) as Partial<DetectorState>;
         if (
-          typeof parsed.tripId === 'string' && typeof parsed.uid === 'string' &&
-          Number.isFinite(parsed.candidateLat) && Number.isFinite(parsed.candidateLng) &&
-          Number.isFinite(parsed.candidateStartedAt) && Number.isFinite(parsed.lastSeenAt)
+          typeof parsed.tripId === 'string' &&
+          typeof parsed.uid === 'string' &&
+          Number.isFinite(parsed.candidateLat) &&
+          Number.isFinite(parsed.candidateLng) &&
+          Number.isFinite(parsed.candidateStartedAt) &&
+          Number.isFinite(parsed.lastSeenAt)
         ) {
           state = parsed as DetectorState;
         } else {
@@ -114,7 +123,12 @@ export const processLocationForStopDetection = async (
     }
 
     // 3. State A: Confirmed Active Stop exists
-    if (state && state.activeStopId && state.activeStopLat !== undefined && state.activeStopLng !== undefined) {
+    if (
+      state &&
+      state.activeStopId &&
+      state.activeStopLat !== undefined &&
+      state.activeStopLng !== undefined
+    ) {
       const distFromActive = getDistanceMeters(lat, lng, state.activeStopLat, state.activeStopLng);
 
       if (distFromActive <= STOP_RESUME_DISTANCE_METERS) {
@@ -170,7 +184,9 @@ export const processLocationForStopDetection = async (
 
     if (distFromCandidate > STOP_RADIUS_METERS) {
       // Moved > 75m before 5 minutes -> Reset unconfirmed candidate
-      devLog(`🔄 [Stop Detector] Moved ${distFromCandidate.toFixed(0)}m > 75m. Resetting unconfirmed candidate.`);
+      devLog(
+        `🔄 [Stop Detector] Moved ${distFromCandidate.toFixed(0)}m > 75m. Resetting unconfirmed candidate.`,
+      );
       const newPendingId = Crypto.randomUUID();
       const newState: DetectorState = {
         tripId,
@@ -196,7 +212,9 @@ export const processLocationForStopDetection = async (
     }
 
     // Dwell Duration >= 5 minutes -> Dwell Confirmed!
-    devLog(`🎯 [Stop Detector] Dwell threshold reached (5+ minutes stationary). Performing deduplication check...`);
+    devLog(
+      `🎯 [Stop Detector] Dwell threshold reached (5+ minutes stationary). Performing deduplication check...`,
+    );
 
     // 5. Deduplication & Cooldown Check (100m radius within last 10 minutes)
     let existingStops: TripStop[] = [];
@@ -210,10 +228,15 @@ export const processLocationForStopDetection = async (
     try {
       const pendingItems = await getOfflineQueue();
       const pendingStops: TripStop[] = pendingItems
-        .filter((i) => i.tripId === tripId && i.uid === uid && (i.operationType === 'manual_stop' || i.operationType === 'auto_stop'))
+        .filter(
+          (i) =>
+            i.tripId === tripId &&
+            i.uid === uid &&
+            (i.operationType === 'manual_stop' || i.operationType === 'auto_stop'),
+        )
         .map((i) => i.payload as TripStop);
       existingStops = [...existingStops, ...pendingStops];
-    } catch (e) {
+    } catch {
       // ignore
     }
 
@@ -224,7 +247,9 @@ export const processLocationForStopDetection = async (
     });
 
     if (recentDuplicate) {
-      devLog(`🛡️ [Stop Detector] Suppressed duplicate stop creation. Found existing stop "${recentDuplicate.name}" within 100m.`);
+      devLog(
+        `🛡️ [Stop Detector] Suppressed duplicate stop creation. Found existing stop "${recentDuplicate.name}" within 100m.`,
+      );
       // Bind state to active stop so detector remains suppressed indefinitely until traveler moves > 150m
       state.activeStopId = recentDuplicate.id;
       state.activeStopLat = recentDuplicate.lat;
@@ -255,7 +280,9 @@ export const processLocationForStopDetection = async (
     await enqueueStop(tripId, uid, newAutoStop, 'auto_stop');
     processPendingSyncQueue(uid);
 
-    devLog(`✨ [Stop Detector] Successfully created automatic stop "${stableStopId}" for trip ${tripId}`);
+    devLog(
+      `✨ [Stop Detector] Successfully created automatic stop "${stableStopId}" for trip ${tripId}`,
+    );
 
     // Transition state to Active Stop
     state.activeStopId = stableStopId;
