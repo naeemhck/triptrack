@@ -58,7 +58,9 @@ npx expo install --check
 npx expo-doctor
 ```
 
-`npm run verify` runs Prettier, TypeScript, ESLint, and 38 Jest assertions with coverage. CI executes the same checks on every pull request and push to `master`.
+`npm run verify` runs Prettier, TypeScript, ESLint, and 50 Jest assertions with coverage. CI executes the same checks on every pull request and push to `master`.
+
+CI also fails on critical production dependency advisories. Expo SDK upgrades remain compatibility-controlled through `expo install --check` and Dependabot rather than forced npm major-version rewrites.
 
 Database tests are transactional pgTAP files:
 
