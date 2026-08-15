@@ -7,6 +7,7 @@ jest.mock('@expo/vector-icons', () => {
 });
 
 jest.mock('@sentry/react-native', () => ({
+  addBreadcrumb: jest.fn(),
   init: jest.fn(),
   captureException: jest.fn(),
   withScope: jest.fn((callback) =>

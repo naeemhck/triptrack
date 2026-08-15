@@ -24,6 +24,9 @@ jest.mock('../supabase/stops', () => ({
   upsertStop: jest.fn(),
 }));
 jest.mock('expo-crypto', () => ({ randomUUID: jest.fn() }));
+jest.mock('../../utils/logger', () => ({
+  logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+}));
 
 const storage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 const crypto = Crypto as jest.Mocked<typeof Crypto>;

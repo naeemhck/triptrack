@@ -41,6 +41,9 @@ jest.mock('../offlineSyncQueue', () => ({
 }));
 jest.mock('../../utils/errorReporting', () => ({ reportError: jest.fn() }));
 jest.mock('../../utils/devLog', () => ({ devLog: jest.fn() }));
+jest.mock('../../utils/logger', () => ({
+  logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+}));
 
 const location = Location as jest.Mocked<typeof Location>;
 const storage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;

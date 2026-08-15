@@ -57,8 +57,8 @@ import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../config/supabase';
-import { devLog } from '../utils/devLog';
 import { reportError } from '../utils/errorReporting';
+import { logger } from '../utils/logger';
 import { processLocationForStopDetection, clearStopDetectorState } from './stopDetector';
 import {
   enqueueLocation,
@@ -239,7 +239,7 @@ export const startBackgroundLocationTracking = async (
           notificationColor: '#14B8A6',
         },
       });
-      devLog(`🚀 [Background Location] Task started for trip.`);
+      logger.info('background_location.started');
     }
   }
 
@@ -256,7 +256,7 @@ export const stopBackgroundLocationTracking = async (): Promise<void> => {
     const isRunning = await isBackgroundTrackingRunning();
     if (isRunning) {
       await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-      devLog('🛑 [Background Location] Task stopped cleanly.');
+      logger.info('background_location.stopped');
     }
   } catch (err) {
     reportError(err, { operation: 'backgroundLocation.stop' });
@@ -283,7 +283,7 @@ export const cleanupActiveTripState = async (
     if (currentUid) {
       await clearTripQueueForUser(tripId, currentUid);
     }
-    devLog(`🧹 [Cleanup] Cleaned active local state for trip.`);
+    logger.info('background_location.state_cleaned');
   } catch (err) {
     reportError(err, { operation: 'backgroundLocation.cleanup' });
   }

@@ -13,118 +13,47 @@
  * 6. Bounded Exponential Backoff: Initial 5s, max 5m, max 10 attempts before `manual_retry_required`
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as ImageManipulator from 'expo-image-manipulator';
 import * as Crypto from 'expo-crypto';
 import { TripStop, MemberLocation } from '../types/location';
 import { upsertLocation } from './supabase/locations';
-import { stopPhotoPath, uploadStopPhoto } from './supabase/photos';
-import { assertStopExistsOwned, updateStop, upsertStop } from './supabase/stops';
-import { devLog, devWarn } from '../utils/devLog';
+import { updateStop, upsertStop } from './supabase/stops';
 import { reportError } from '../utils/errorReporting';
+import { logger } from '../utils/logger';
+import {
+  LEASE_DURATION_MS,
+  MAX_ATTEMPTS,
+  MEDIA_LEASE_DURATION_MS,
+  SYNC_INITIAL_RETRY_MS,
+  SYNC_MAX_RETRY_MS,
+  leaseDurationFor,
+  nextRetryState,
+} from './offlineSyncBackoff';
+import {
+  MAX_PENDING_PHOTOS,
+  prepareDurableStopPhoto,
+  removeDurableStopPhoto,
+  syncQueuedStopPhoto,
+} from './offlineSyncPhotos';
+import {
+  ASYNC_QUEUE_KEY,
+  getOfflineQueue,
+  runSerializedQueueMutation as runSerializedMutation,
+} from './offlineSyncStore';
+import { OfflineOperationType, OfflineSyncItem, SyncItemStatus } from './offlineSyncTypes';
 
-export const ASYNC_QUEUE_KEY = '@triptrack_offline_sync_queue';
-export const LEASE_DURATION_MS = 60 * 1000; // 60s lease timeout for standard operations
-export const MEDIA_LEASE_DURATION_MS = 180 * 1000; // 180s lease timeout for slow media photo uploads
-export const SYNC_INITIAL_RETRY_MS = 5000; // 5s
-export const SYNC_MAX_RETRY_MS = 5 * 60 * 1000; // 5m
-export const MAX_ATTEMPTS = 10;
-export const MAX_PENDING_PHOTOS = 20; // Retention safety limit for queued photos
-const PENDING_MEDIA_DIRECTORY = `${FileSystem.documentDirectory}triptrack-pending-media/`;
+export {
+  ASYNC_QUEUE_KEY,
+  getOfflineQueue,
+  LEASE_DURATION_MS,
+  MAX_ATTEMPTS,
+  MEDIA_LEASE_DURATION_MS,
+  SYNC_INITIAL_RETRY_MS,
+  SYNC_MAX_RETRY_MS,
+  MAX_PENDING_PHOTOS,
+};
+export type { OfflineOperationType, OfflineSyncItem, SyncItemStatus };
 
-export type OfflineOperationType =
-  | 'latest_location'
-  | 'leader_route_sample'
-  | 'manual_stop'
-  | 'auto_stop'
-  | 'stop_update'
-  | 'stop_photo';
-
-export type SyncItemStatus =
-  'pending' | 'processing' | 'synced' | 'failed' | 'manual_retry_required';
-
-export interface OfflineSyncItem {
-  id: string;
-  operationType: OfflineOperationType;
-  tripId: string;
-  uid: string;
-  createdAt: number; // queuedAt
-  sampledAt?: number;
-  attempts: number;
-  nextRetryAt: number;
-  status: SyncItemStatus;
-  processingStartedAt?: number;
-  leaseExpiresAt?: number;
-  payload: any;
-  localPhotoUri?: string;
-  error?: string;
-}
-
-// In-memory mutex chain for serializing queue mutations (prevents AsyncStorage read-modify-write race conditions)
-let mutationChain: Promise<any> = Promise.resolve();
 let isWorkerRunning = false;
-
-/**
- * Execute a serialized queue mutation safely
- */
-const runSerializedMutation = <T>(
-  mutationFn: (queue: OfflineSyncItem[]) => Promise<{ updatedQueue: OfflineSyncItem[]; result: T }>,
-): Promise<T> => {
-  const nextPromise = mutationChain.then(async () => {
-    try {
-      const raw = await AsyncStorage.getItem(ASYNC_QUEUE_KEY);
-      let queue: OfflineSyncItem[] = [];
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            // Filter malformed records
-            queue = parsed.filter(
-              (item) => item && item.id && item.operationType && item.tripId && item.uid,
-            );
-          }
-        } catch (e) {
-          reportError(e, { operation: 'offlineQueue.parse' });
-        }
-      }
-
-      const { updatedQueue, result } = await mutationFn(queue);
-      await AsyncStorage.setItem(ASYNC_QUEUE_KEY, JSON.stringify(updatedQueue));
-      return result;
-    } catch (err) {
-      reportError(err, { operation: 'offlineQueue.mutate' });
-      throw err;
-    }
-  });
-
-  mutationChain = nextPromise.catch(() => {});
-  return nextPromise;
-};
-
-/**
- * Retrieve current offline queue items
- */
-export const getOfflineQueue = async (): Promise<OfflineSyncItem[]> => {
-  return runSerializedMutation(async (queue) => {
-    // Reclaim expired processing leases on load
-    const now = Date.now();
-    const cleaned = queue.map((item) => {
-      if (item.status === 'processing' && item.leaseExpiresAt && now > item.leaseExpiresAt) {
-        devLog(`⏳ [Sync Queue] Reclaimed expired processing lease for item ${item.id}`);
-        return {
-          ...item,
-          status: 'pending' as SyncItemStatus,
-          processingStartedAt: undefined,
-          leaseExpiresAt: undefined,
-        };
-      }
-      return item;
-    });
-
-    return { updatedQueue: cleaned, result: cleaned };
-  });
-};
 
 /**
  * Enqueue / Coalesce a Live Location sample (`latest_location`)
@@ -161,7 +90,7 @@ export const enqueueLocation = async (
       },
     };
 
-    devLog(`📥 [Sync Queue] Coalesced live location for user ${uid} on trip ${tripId}`);
+    logger.info('offline_queue.location_coalesced', { isRouteLeader });
     if (!isRouteLeader) return { updatedQueue: [...filtered, newItem], result: undefined };
     const routeItem: OfflineSyncItem = {
       ...newItem,
@@ -210,7 +139,7 @@ export const enqueueStop = async (
       updatedQueue = [...queue, itemData];
     }
 
-    devLog(`📥 [Sync Queue] Enqueued ${operationType} "${stopData.name}" (${stopData.id})`);
+    logger.info('offline_queue.stop_enqueued', { operationType });
     return { updatedQueue, result: undefined };
   });
 };
@@ -235,7 +164,7 @@ export const enqueueStopUpdate = async (
       const mergedPayload = { ...parentItem.payload, ...updateFields };
       const updatedQueue = [...queue];
       updatedQueue[parentIndex] = { ...parentItem, payload: mergedPayload };
-      devLog(`📥 [Sync Queue] Merged stop_update directly into queued stop ${stopId}`);
+      logger.info('offline_queue.stop_update_merged');
       return { updatedQueue, result: undefined };
     }
 
@@ -253,7 +182,7 @@ export const enqueueStopUpdate = async (
       payload: { stopId, ...updateFields },
     };
 
-    devLog(`📥 [Sync Queue] Enqueued stop_update for stop ${stopId}`);
+    logger.info('offline_queue.stop_update_enqueued');
     return { updatedQueue: [...queue, updateItem], result: undefined };
   });
 };
@@ -267,21 +196,13 @@ export const enqueueStopPhoto = async (
   stopId: string,
   localPhotoUri: string,
 ): Promise<void> => {
-  await FileSystem.makeDirectoryAsync(PENDING_MEDIA_DIRECTORY, { intermediates: true });
-  const normalized = await ImageManipulator.manipulateAsync(localPhotoUri, [], {
-    compress: 0.85,
-    format: ImageManipulator.SaveFormat.JPEG,
-  });
-  const durablePhotoUri = `${PENDING_MEDIA_DIRECTORY}${stopId}.jpg`;
-  await FileSystem.copyAsync({ from: normalized.uri, to: durablePhotoUri });
+  const durablePhotoUri = await prepareDurableStopPhoto(stopId, localPhotoUri);
 
   try {
     return await runSerializedMutation(async (queue) => {
       const pendingPhotoCount = queue.filter((i) => i.operationType === 'stop_photo').length;
       if (pendingPhotoCount >= MAX_PENDING_PHOTOS) {
-        devWarn(
-          `⚠️ [Sync Queue] Pending photo limit (${MAX_PENDING_PHOTOS}) reached. Deferring new photo queuing.`,
-        );
+        logger.warn('offline_queue.photo_limit_reached', { limit: MAX_PENDING_PHOTOS });
         throw new Error("Photo can't be queued until pending uploads sync.");
       }
 
@@ -301,11 +222,11 @@ export const enqueueStopPhoto = async (
         payload: { stopId, photoUploaded: false, remotePath: null },
       };
 
-      devLog(`📥 [Sync Queue] Enqueued stop_photo for stop ${stopId}`);
+      logger.info('offline_queue.photo_enqueued');
       return { updatedQueue: [...queue, photoItem], result: undefined };
     });
   } catch (error) {
-    await FileSystem.deleteAsync(durablePhotoUri, { idempotent: true });
+    await removeDurableStopPhoto(durablePhotoUri);
     throw error;
   }
 };
@@ -334,9 +255,7 @@ export const clearTripQueueForUser = async (tripId: string, uid: string): Promis
 const syncSingleItem = async (item: OfflineSyncItem, currentUid: string): Promise<boolean> => {
   // Validate ownership
   if (item.uid !== currentUid) {
-    devLog(
-      `⚠️ [Sync Queue] User mismatch for item ${item.id} (item uid: ${item.uid}, current uid: ${currentUid}). Skipping.`,
-    );
+    logger.warn('offline_queue.owner_mismatch', { operationType: item.operationType });
     return false;
   }
 
@@ -383,30 +302,24 @@ const syncSingleItem = async (item: OfflineSyncItem, currentUid: string): Promis
   }
 
   if (operationType === 'stop_photo') {
-    const stopId = payload.stopId;
-    let remotePath = payload.remotePath as string | null;
-
-    // The binary is secondary to the canonical stop and must never race it.
-    await assertStopExistsOwned(tripId, stopId, item.uid);
-
-    // Partial success recovery: if Storage upload hasn't succeeded yet, upload photo
-    if (!payload.photoUploaded && localPhotoUri) {
-      devLog(`📤 [Sync Queue] Uploading photo for stop ${stopId}...`);
-      remotePath = stopPhotoPath(tripId, stopId);
-      await uploadStopPhoto(remotePath, localPhotoUri);
-      await runSerializedMutation(async (queue) => ({
-        updatedQueue: queue.map((queued) =>
-          queued.id === item.id
-            ? { ...queued, payload: { ...queued.payload, photoUploaded: true, remotePath } }
-            : queued,
-        ),
-        result: undefined,
-      }));
-    }
-
-    if (!remotePath) throw new Error('Uploaded photo is missing its remote path.');
-    await updateStop(tripId, stopId, { photoPath: remotePath });
-    if (localPhotoUri) await FileSystem.deleteAsync(localPhotoUri, { idempotent: true });
+    await syncQueuedStopPhoto({
+      tripId,
+      stopId: payload.stopId,
+      uid: item.uid,
+      localPhotoUri,
+      photoUploaded: Boolean(payload.photoUploaded),
+      remotePath: payload.remotePath as string | null,
+      onUploadComplete: async (remotePath) => {
+        await runSerializedMutation(async (queue) => ({
+          updatedQueue: queue.map((queued) =>
+            queued.id === item.id
+              ? { ...queued, payload: { ...queued.payload, photoUploaded: true, remotePath } }
+              : queued,
+          ),
+          result: undefined,
+        }));
+      },
+    });
     return true;
   }
 
@@ -419,7 +332,7 @@ const syncSingleItem = async (item: OfflineSyncItem, currentUid: string): Promis
  */
 export const processPendingSyncQueue = async (currentUid?: string): Promise<void> => {
   if (isWorkerRunning) {
-    devLog('🔒 [Sync Queue] Sync worker already running. Skipping concurrent run.');
+    logger.info('offline_queue.worker_already_running');
     return;
   }
 
@@ -446,7 +359,7 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
       return;
     }
 
-    devLog(`🔄 [Sync Queue Worker] Processing ${readyItems.length} ready queue items...`);
+    logger.info('offline_queue.processing', { queueCount: readyItems.length });
 
     // Priority ordering: 1. latest_location, 2. manual_stop/auto_stop, 3. stop_update, 4. stop_photo
     const typePriority: Record<OfflineOperationType, number> = {
@@ -462,8 +375,7 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
 
     for (const item of readyItems) {
       // Lease item (use 180s for media uploads, 60s for standard operations)
-      const leaseMs =
-        item.operationType === 'stop_photo' ? MEDIA_LEASE_DURATION_MS : LEASE_DURATION_MS;
+      const leaseMs = leaseDurationFor(item.operationType);
       await runSerializedMutation(async (q) => {
         const idx = q.findIndex((i) => i.id === item.id);
         if (idx >= 0) {
@@ -485,7 +397,7 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
             const remaining = q.filter((i) => i.id !== item.id);
             return { updatedQueue: remaining, result: undefined };
           });
-          devLog(`✅ [Sync Queue Worker] Item ${item.id} successfully synchronized.`);
+          logger.info('offline_queue.item_synchronized', { operationType: item.operationType });
         }
       } catch (err: unknown) {
         const errorMessage =
@@ -494,25 +406,22 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
             : typeof err === 'object' && err !== null && 'message' in err
               ? String(err.message)
               : String(err || 'Sync error');
-        devWarn(`[Sync Queue Worker] Deferred item ${item.id}: ${errorMessage}`);
+        logger.warn('offline_queue.item_deferred', {
+          operationType: item.operationType,
+          attempt: item.attempts + 1,
+        });
 
         // Bounded exponential backoff
-        const nextAttempts = item.attempts + 1;
-        const delay = Math.min(
-          SYNC_INITIAL_RETRY_MS * Math.pow(2, nextAttempts - 1),
-          SYNC_MAX_RETRY_MS,
-        );
-        const nextStatus: SyncItemStatus =
-          nextAttempts >= MAX_ATTEMPTS ? 'manual_retry_required' : 'failed';
+        const retry = nextRetryState(item.attempts, Date.now());
 
         await runSerializedMutation(async (q) => {
           const idx = q.findIndex((i) => i.id === item.id);
           if (idx >= 0) {
             q[idx] = {
               ...q[idx],
-              attempts: nextAttempts,
-              nextRetryAt: Date.now() + delay,
-              status: nextStatus,
+              attempts: retry.attempts,
+              nextRetryAt: retry.nextRetryAt,
+              status: retry.status,
               error: errorMessage,
               leaseExpiresAt: undefined,
             };
@@ -522,9 +431,8 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
       }
     }
   } catch (globalErr) {
-    const errorMessage =
-      globalErr instanceof Error ? globalErr.message : String(globalErr || 'Sync error');
-    devWarn(`[Sync Queue Worker] Processor deferred: ${errorMessage}`);
+    logger.error('offline_queue.processor_deferred');
+    reportError(globalErr, { operation: 'offlineQueue.process' });
   } finally {
     isWorkerRunning = false;
   }
