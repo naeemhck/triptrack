@@ -353,6 +353,9 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
   const handleStartTrip = async () => {
     if (!tripId || !user?.uid) return;
     try {
+      if (!activeTrip?.routeLeaderUserId) {
+        await setRouteLeader(tripId, user.uid);
+      }
       await startTrip(tripId, user.uid);
       await refreshTrips();
       Alert.alert(

@@ -132,6 +132,27 @@ export const TripWorkspaceView = (props: Props) => {
             </TouchableOpacity>
           ) : null}
           {props.loadingData ? <ActivityIndicator color={colors.primary} /> : null}
+          {props.trip.status === 'planned' ? (
+            <View style={styles.plannedCard}>
+              <View style={styles.flex}>
+                <Text style={styles.plannedTitle}>Trip Planned 📝</Text>
+                <Text style={styles.sub}>
+                  {props.trip.routeLeaderUserId
+                    ? `Leader: ${props.memberRows.find((r) => r.member.uid === props.trip.routeLeaderUserId)?.member.displayName || 'Assigned'}`
+                    : 'No Route Leader assigned yet.'}
+                </Text>
+                <Text style={styles.sub}>
+                  Live location sharing starts when the trip is started.
+                </Text>
+              </View>
+              {props.isOrganizer ? (
+                <TouchableOpacity style={styles.startTripButton} onPress={props.onStartTrip}>
+                  <Ionicons name="play" size={18} color="#FFF" />
+                  <Text style={styles.primaryText}>Start Trip 🚀</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
           {props.trip.status === 'active' ? (
             <View style={styles.sharingRow}>
               <View style={styles.flex}>
@@ -288,6 +309,16 @@ export const TripWorkspaceView = (props: Props) => {
     if (tab === 'members')
       return (
         <ScrollView contentContainerStyle={styles.content}>
+          {props.trip.status === 'planned' ? (
+            <View style={styles.plannedBanner}>
+              <Ionicons name="information-circle-outline" size={20} color={colors.link} />
+              <Text style={styles.plannedBannerText}>
+                {props.isOrganizer
+                  ? 'Assign a Route Leader or manage members below before starting the trip.'
+                  : 'Trip planned. The organizer can designate the Route Leader before start.'}
+              </Text>
+            </View>
+          ) : null}
           <Text style={styles.sectionTitle}>
             {props.activeMemberCount} active · {props.memberRows.length} members
           </Text>
@@ -302,7 +333,7 @@ export const TripWorkspaceView = (props: Props) => {
               isHost={member.uid === props.trip.createdBy}
               isRouteLeader={member.uid === props.trip.routeLeaderUserId}
               completed={props.trip.status === 'completed'}
-              canManage={props.isOrganizer && props.trip.status === 'active'}
+              canManage={props.isOrganizer && props.trip.status !== 'completed'}
               warningDistanceMeters={warningDistance}
               criticalDistanceMeters={criticalDistance}
               stoppedSince={
@@ -622,4 +653,33 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
   },
+  plannedCard: {
+    padding: 12,
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+  },
+  plannedTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '800' },
+  startTripButton: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 8,
+    backgroundColor: colors.success,
+  },
+  plannedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.borderActive,
+  },
+  plannedBannerText: { flex: 1, color: colors.textSecondary, fontSize: 12 },
 });

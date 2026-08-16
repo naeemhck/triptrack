@@ -153,4 +153,52 @@ describe('TripWorkspaceView', () => {
     fireEvent.press(view.getByText('Alerts'));
     expect(view.getByText('Warning separation predicted within 2 minutes')).toBeTruthy();
   });
+
+  it('renders Start Trip button and Make Leader action for planned trips', () => {
+    const onStartTrip = jest.fn();
+    const onMakeLeader = jest.fn();
+    const plannedTripProps = {
+      ...props,
+      trip: { ...props.trip, status: 'planned' as const },
+      isOrganizer: true,
+      memberRows: [
+        {
+          member: {
+            uid: 'user-2',
+            displayName: 'Alice',
+            email: 'alice@example.com',
+            joinedAt: 1,
+            sharingEnabled: false,
+          },
+          freshness: {
+            state: 'sharing_off' as const,
+            label: 'Location off',
+            shortLabel: 'Off',
+            minutesAgo: 0,
+            opacity: 0.5,
+          },
+          active: false,
+        },
+      ],
+      onStartTrip,
+      onMakeLeader,
+    };
+
+    const view = render(<TripWorkspaceView {...plannedTripProps} />);
+    expect(view.getByText('Trip Planned 📝')).toBeTruthy();
+
+    const startBtn = view.getByText('Start Trip 🚀');
+    expect(startBtn).toBeTruthy();
+    fireEvent.press(startBtn);
+    expect(onStartTrip).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(view.getByText('Members'));
+    expect(
+      view.getByText('Assign a Route Leader or manage members below before starting the trip.'),
+    ).toBeTruthy();
+    const makeLeaderBtn = view.getByText('Make leader');
+    expect(makeLeaderBtn).toBeTruthy();
+    fireEvent.press(makeLeaderBtn);
+    expect(onMakeLeader).toHaveBeenCalledWith(plannedTripProps.memberRows[0].member);
+  });
 });
