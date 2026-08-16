@@ -36,7 +36,7 @@ const stripHarness = (source) =>
 const migration = fs.readFileSync(migrationPath, 'utf8').trim();
 const suites = testPaths.map((testPath) => {
   const name = path.basename(testPath);
-  return `\n-- -----------------------------------------------------------------------------\n-- ${name}\n-- -----------------------------------------------------------------------------\nreset role;\n${stripHarness(fs.readFileSync(testPath, 'utf8'))}\n`;
+  return `\n-- -----------------------------------------------------------------------------\n-- ${name}\n-- -----------------------------------------------------------------------------\nreset role;\nselect set_config('request.jwt.claim.sub','',true);\nselect set_config('request.jwt.claims','{}',true);\n${stripHarness(fs.readFileSync(testPath, 'utf8'))}\n`;
 });
 
 const output = `-- TripTrack V2 rollback-only Supabase SQL Editor validation

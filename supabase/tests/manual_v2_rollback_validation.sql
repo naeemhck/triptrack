@@ -527,6 +527,8 @@ alter publication supabase_realtime add table public.trip_member_navigation_stat
 -- notification_preferences.test.sql
 -- -----------------------------------------------------------------------------
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 insert into public.profiles(id, display_name) values
 ('91000000-0000-4000-8000-000000000001', 'Preference One'),
 ('91000000-0000-4000-8000-000000000002', 'Preference Two'),
@@ -576,6 +578,8 @@ insert into tap_results select is((select warning_enabled from public.trip_notif
 -- leader_route.test.sql
 -- -----------------------------------------------------------------------------
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 insert into public.profiles(id,display_name) values
 ('10000000-0000-4000-8000-000000000001','Leader'),
 ('10000000-0000-4000-8000-000000000002','Follower'),
@@ -645,6 +649,8 @@ insert into tap_results select is((select count(*)::int from public.trip_route_p
 -- active_trip_workspace.test.sql
 -- -----------------------------------------------------------------------------
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 insert into public.profiles(id,display_name) values
 ('a1000000-0000-4000-8000-000000000001','Workspace Host'),
 ('a1000000-0000-4000-8000-000000000002','Workspace Member'),
@@ -712,6 +718,8 @@ insert into tap_results select is((select count(*)::integer from public.trip_mem
 -- route_navigation_v2.test.sql
 -- -----------------------------------------------------------------------------
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 insert into public.profiles(id,display_name) values
 ('b1000000-0000-4000-8000-000000000001','Navigation Host'),
 ('b1000000-0000-4000-8000-000000000002','Navigation Member'),
