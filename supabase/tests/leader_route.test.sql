@@ -37,7 +37,7 @@ insert into tap_results select lives_ok($$select public.submit_trip_location('20
 insert into tap_results select is((select count(*)::int from public.trip_route_points where sample_id='30000000-0000-4000-8000-000000000005'),1,'duplicate replay does not append');
 
 -- submit_trip_location above already created the leader's latest-location row.
-insert into public.trip_locations values
+insert into public.trip_locations(trip_id,user_id,latitude,longitude,accuracy,sampled_at,updated_at) values
 ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002',0,0.0005,5,now(),now());
 select public.recompute_trip_route_statuses('20000000-0000-4000-8000-000000000001');
 insert into tap_results select is((select state::text from public.trip_member_route_status where user_id='10000000-0000-4000-8000-000000000003'),'LOCATION_INACTIVE','inactive member state');

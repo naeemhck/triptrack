@@ -7,6 +7,10 @@ export interface MemberLocation {
   displayName?: string;
   avatar?: string;
   accuracy?: number;
+  speedMps?: number;
+  smoothedSpeedMps?: number;
+  speedSampleCount?: number;
+  heading?: number;
   sharingEnabled?: boolean;
 }
 

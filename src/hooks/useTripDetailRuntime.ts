@@ -18,9 +18,11 @@ import {
   processPendingSyncQueue,
 } from '../services/offlineSyncQueue';
 import { listMemberRouteStatuses, listRoutePoints } from '../services/supabase/routes';
+import { getCurrentPlannedRoute, listNavigationStatuses } from '../services/supabase/navigation';
 import { subscribeToTripTable } from '../services/supabase/realtime';
 import { MemberLocation, TripStop } from '../types/location';
 import { MemberRouteStatus, TripRoutePoint } from '../types/route';
+import { MemberNavigationStatus, PlannedRoute } from '../types/navigation';
 import { Trip, TripMember, TripMemberFilter } from '../types/trip';
 import { UserProfile } from '../types/auth';
 import { devLog } from '../utils/devLog';
@@ -58,6 +60,8 @@ export const useTripDetailRuntime = ({
   const [stops, setStops] = useState<TripStop[]>([]);
   const [routePoints, setRoutePoints] = useState<TripRoutePoint[]>([]);
   const [routeStatuses, setRouteStatuses] = useState<MemberRouteStatus[]>([]);
+  const [plannedRoute, setPlannedRoute] = useState<PlannedRoute | null>(null);
+  const [navigationStatuses, setNavigationStatuses] = useState<MemberNavigationStatus[]>([]);
   const [memberFilter, setMemberFilter] = useState<TripMemberFilter>('all');
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -249,6 +253,40 @@ export const useTripDetailRuntime = ({
     };
   }, [refreshTrips, tripId]);
 
+  useEffect(() => {
+    if (!tripId) return;
+    let mounted = true;
+    const refreshNavigation = async () => {
+      try {
+        const [route, statuses] = await Promise.all([
+          getCurrentPlannedRoute(tripId),
+          listNavigationStatuses(tripId),
+        ]);
+        if (mounted) {
+          setPlannedRoute(route);
+          setNavigationStatuses(statuses);
+        }
+      } catch (error) {
+        reportError(error, { operation: 'tripDetail.refreshNavigation', severity: 'warning' });
+      }
+    };
+    void refreshNavigation();
+    const tables = [
+      'trip_planned_routes',
+      'trip_route_waypoints',
+      'trip_planned_route_points',
+      'trip_route_steps',
+      'trip_member_navigation_status',
+    ] as const;
+    const unsubscribe = tables.map((table) =>
+      subscribeToTripTable(table, tripId, () => void refreshNavigation()),
+    );
+    return () => {
+      mounted = false;
+      unsubscribe.forEach((stop) => stop());
+    };
+  }, [tripId]);
+
   // Handle Foreground Location Watcher (used when sharing is ON & permState is foreground-only or backup)
   useEffect(() => {
     if (!isSharingEnabled || !tripId || !user?.uid) return;
@@ -259,6 +297,10 @@ export const useTripDetailRuntime = ({
       const lat = loc.coords.latitude;
       const lng = loc.coords.longitude;
       const accuracy = loc.coords.accuracy ?? undefined;
+      const speedMps =
+        loc.coords.speed != null && loc.coords.speed >= 0 ? loc.coords.speed : undefined;
+      const heading =
+        loc.coords.heading != null && loc.coords.heading >= 0 ? loc.coords.heading : undefined;
       setUserCoords({ lat, lng });
       await enqueueLocation(
         tripId,
@@ -267,6 +309,8 @@ export const useTripDetailRuntime = ({
           lat,
           lng,
           accuracy,
+          speedMps,
+          heading,
           sampledAt: loc.timestamp || Date.now(),
         },
         activeTrip?.routeLeaderUserId === user.uid,
@@ -311,12 +355,12 @@ export const useTripDetailRuntime = ({
           }
         }
 
-        // Watch location updates (every 12s or 20m)
+        // Active on-screen navigation needs tighter sampling; background remains 30s/50m.
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Balanced,
-            timeInterval: 12000,
-            distanceInterval: 20,
+            timeInterval: plannedRoute ? 5000 : 12000,
+            distanceInterval: plannedRoute ? 10 : 20,
           },
           (loc) => {
             void processForegroundSample(loc).catch(() => {
@@ -336,7 +380,7 @@ export const useTripDetailRuntime = ({
         locationSubscription.remove();
       }
     };
-  }, [activeTrip?.routeLeaderUserId, isSharingEnabled, tripId, user?.uid]);
+  }, [activeTrip?.routeLeaderUserId, isSharingEnabled, plannedRoute?.id, tripId, user?.uid]);
 
   return {
     isSharingEnabled,
@@ -345,6 +389,8 @@ export const useTripDetailRuntime = ({
     memberFilter,
     members,
     pendingQueue,
+    plannedRoute,
+    navigationStatuses,
     permState,
     refreshQueueState,
     routePoints,

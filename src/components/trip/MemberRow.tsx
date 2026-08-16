@@ -5,6 +5,7 @@ import { colors } from '../../theme/colors';
 import { TripMember } from '../../types/trip';
 import { MemberRouteStatus } from '../../types/route';
 import { LocationFreshnessResult } from '../../utils/locationFreshness';
+import { MemberNavigationStatus } from '../../types/navigation';
 import { getMemberColor, getMemberInitials } from '../../utils/memberIdentity';
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
   warningDistanceMeters?: number;
   criticalDistanceMeters?: number;
   stoppedSince?: number;
+  navigationStatus?: MemberNavigationStatus;
 }
 
 export const MemberRow = ({
@@ -37,6 +39,7 @@ export const MemberRow = ({
   warningDistanceMeters = 200,
   criticalDistanceMeters = 500,
   stoppedSince,
+  navigationStatus,
 }: Props) => {
   const delta = routeStatus?.deltaMeters;
   let accent: string = colors.success;
@@ -119,6 +122,17 @@ export const MemberRow = ({
         {distanceLabel ? (
           <Text style={[styles.distance, { color: accent }]}>{distanceLabel}</Text>
         ) : null}
+        {navigationStatus?.speedTrustworthy && navigationStatus.smoothedSpeedMps != null ? (
+          <Text style={styles.navigationDetail}>
+            {Math.round(navigationStatus.smoothedSpeedMps * 3.6)} km/h
+            {navigationStatus.remainingDistanceMeters != null
+              ? ` · ${(navigationStatus.remainingDistanceMeters / 1000).toFixed(1)} km remaining`
+              : ''}
+            {navigationStatus.estimatedArrivalAt
+              ? ` · ETA ${new Date(navigationStatus.estimatedArrivalAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+              : ''}
+          </Text>
+        ) : null}
         {canManage ? (
           <View style={styles.actions}>
             {!isRouteLeader ? (
@@ -185,6 +199,7 @@ const styles = StyleSheet.create({
   status: { fontSize: 12, fontWeight: '700' },
   host: { color: colors.textSecondary, fontSize: 11, marginLeft: 4 },
   distance: { fontSize: 18, fontWeight: '800', marginTop: 5 },
+  navigationDetail: { color: colors.textSecondary, fontSize: 12, marginTop: 5 },
   actions: {
     marginTop: 10,
     paddingTop: 9,

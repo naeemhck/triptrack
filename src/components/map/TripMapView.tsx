@@ -33,6 +33,8 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
       stops,
       routePoints = [],
       routeLeaderUserId,
+      plannedRoute,
+      navigationStatuses = [],
       userLocation,
       onMarkStop,
       allowMarkStop,
@@ -41,6 +43,7 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
       highlightStopId,
       initialCamera,
       onCameraChange,
+      onMapPress,
     },
     ref,
   ) => {
@@ -113,7 +116,8 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
           attributionEnabled
           logoEnabled={false}
           onRegionDidChange={(feature) => {
-            const coordinates = feature.geometry?.coordinates;
+            const coordinates = (feature.geometry as { coordinates?: unknown[] } | undefined)
+              ?.coordinates;
             if (Array.isArray(coordinates) && coordinates.length >= 2) {
               onCameraChange?.({
                 longitude: Number(coordinates[0]),
@@ -122,7 +126,35 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
               });
             }
           }}
+          onPress={(feature) => {
+            const coordinates = (feature.geometry as { coordinates?: unknown[] } | undefined)
+              ?.coordinates;
+            if (onMapPress && Array.isArray(coordinates) && coordinates.length >= 2) {
+              onMapPress(Number(coordinates[1]), Number(coordinates[0]));
+            }
+          }}
         >
+          {plannedRoute && plannedRoute.points.length > 1 ? (
+            <ShapeSource
+              id="planned-route"
+              shape={{
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: plannedRoute.points.map((point) => [
+                    point.longitude,
+                    point.latitude,
+                  ]),
+                },
+              }}
+            >
+              <LineLayer
+                id="planned-route-line"
+                style={{ lineColor: '#3B82F6', lineWidth: 7, lineOpacity: 0.72 }}
+              />
+            </ShapeSource>
+          ) : null}
           {routePoints.length > 1 ? (
             <ShapeSource
               id="canonical-route"
@@ -169,6 +201,7 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
               ? [loc.lng + Math.cos(angle) * 0.000035, loc.lat + Math.sin(angle) * 0.000035]
               : [loc.lng, loc.lat];
             const isRouteLeader = loc.uid === routeLeaderUserId;
+            const navigation = navigationStatuses.find((status) => status.userId === loc.uid);
 
             return (
               <PointAnnotation key={`loc_${loc.uid}`} id={`loc_${loc.uid}`} coordinate={coordinate}>
@@ -206,6 +239,11 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
                           : styles.offDot,
                     ]}
                   />
+                  {navigation?.speedTrustworthy && navigation.smoothedSpeedMps != null ? (
+                    <Text style={styles.speedBadge}>
+                      {Math.round(navigation.smoothedSpeedMps * 3.6)} km/h
+                    </Text>
+                  ) : null}
                 </View>
 
                 <Callout style={styles.callout}>
@@ -225,6 +263,33 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
               </PointAnnotation>
             );
           })}
+
+          {plannedRoute?.waypoints.map((waypoint) => (
+            <PointAnnotation
+              key={`waypoint_${waypoint.sequence}`}
+              id={`waypoint_${waypoint.sequence}`}
+              coordinate={[waypoint.longitude, waypoint.latitude]}
+            >
+              <View
+                style={[
+                  styles.stopMarker,
+                  { backgroundColor: waypoint.reachedAt ? colors.success : '#3B82F6' },
+                ]}
+              >
+                <Text style={styles.avatarInitial}>{waypoint.sequence}</Text>
+              </View>
+            </PointAnnotation>
+          ))}
+          {plannedRoute ? (
+            <PointAnnotation
+              id="planned-destination"
+              coordinate={[plannedRoute.destination.longitude, plannedRoute.destination.latitude]}
+            >
+              <View style={[styles.stopMarker, { backgroundColor: '#3B82F6' }]}>
+                <Ionicons name="flag" size={18} color="#FFF" />
+              </View>
+            </PointAnnotation>
+          ) : null}
 
           {/* Marked Stop Markers */}
           {stops.map((stop) => {
@@ -301,6 +366,19 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
 MapLibreTripMap.displayName = 'MapLibreTripMap';
 
 const styles = StyleSheet.create({
+  speedBadge: {
+    position: 'absolute',
+    top: 34,
+    minWidth: 48,
+    textAlign: 'center',
+    color: '#FFF',
+    backgroundColor: colors.surface,
+    fontSize: 9,
+    fontWeight: '700',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
   container: {
     height: 320,
     borderRadius: 16,

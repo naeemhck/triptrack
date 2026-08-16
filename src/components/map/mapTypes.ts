@@ -1,5 +1,6 @@
 import { MemberLocation, TripStop } from '../../types/location';
 import { TripRoutePoint } from '../../types/route';
+import { MemberNavigationStatus, PlannedRoute } from '../../types/navigation';
 
 export type MapProvider = 'maplibre' | 'google';
 
@@ -18,6 +19,8 @@ export interface TripMapProps {
   stops: TripStop[];
   routePoints?: TripRoutePoint[];
   routeLeaderUserId?: string;
+  plannedRoute?: PlannedRoute | null;
+  navigationStatuses?: MemberNavigationStatus[];
   userLocation: { lat: number; lng: number } | null;
   onMarkStop: (lat?: number, lng?: number) => void;
   allowMarkStop?: boolean;
@@ -27,4 +30,5 @@ export interface TripMapProps {
   initialCamera?: CameraTarget;
   onCameraChange?: (camera: CameraTarget) => void;
   onMapLoaded?: () => void;
+  onMapPress?: (lat: number, lng: number) => void;
 }

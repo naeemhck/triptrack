@@ -31,3 +31,9 @@ verify_jwt = true
 
 [functions.send-member-departure]
 verify_jwt = false
+
+[functions.calculate-route]
+verify_jwt = true
+
+[functions.search-places]
+verify_jwt = true

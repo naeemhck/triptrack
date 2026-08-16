@@ -9,7 +9,12 @@ export type RealtimeTripTable =
   | 'trip_member_route_status'
   | 'lag_alert_events'
   | 'stale_alert_episodes'
-  | 'trip_member_events';
+  | 'trip_member_events'
+  | 'trip_planned_routes'
+  | 'trip_route_waypoints'
+  | 'trip_planned_route_points'
+  | 'trip_route_steps'
+  | 'trip_member_navigation_status';
 
 export function subscribeToTripTable(
   table: RealtimeTripTable,

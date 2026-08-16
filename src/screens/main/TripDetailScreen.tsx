@@ -54,8 +54,10 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
 
   const activeTrip: Trip | undefined = trips.find((t) => t.id === tripId);
   const mapRef = useRef<TripMapRef | null>(null);
+  const promptedReroute = useRef<string | null>(null);
   const [alertEvents, setAlertEvents] = useState<TripAlertEvent[]>([]);
   const [statistics, setStatistics] = useState<TripStatistics>();
+  const isOrganizer = activeTrip?.createdBy === user?.uid;
 
   useEffect(() => {
     if (tripId && activeTrip?.status === 'active') void rememberActiveTrip(tripId);
@@ -72,6 +74,8 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     refreshQueueState,
     routePoints,
     routeStatuses,
+    plannedRoute,
+    navigationStatuses,
     setPermState,
     setShowBgModal,
     setTogglingSharing,
@@ -89,6 +93,38 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     tripId,
     user,
   });
+
+  useEffect(() => {
+    const leaderStatus = navigationStatuses.find(
+      (status) => status.userId === activeTrip?.routeLeaderUserId,
+    );
+    if (
+      !isOrganizer ||
+      !plannedRoute ||
+      !leaderStatus?.rerouteSuggested ||
+      promptedReroute.current === plannedRoute.id
+    )
+      return;
+    promptedReroute.current = plannedRoute.id;
+    Alert.alert(
+      'Route deviation detected',
+      'The Route Leader is materially off the planned route. Review a route from the current leader location?',
+      [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Review route',
+          onPress: () => navigation.navigate('RoutePlanner', { tripId, reroute: true }),
+        },
+      ],
+    );
+  }, [
+    activeTrip?.routeLeaderUserId,
+    isOrganizer,
+    navigation,
+    navigationStatuses,
+    plannedRoute,
+    tripId,
+  ]);
 
   useEffect(() => {
     if (!tripId) return;
@@ -429,7 +465,6 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     );
   }
 
-  const isOrganizer = activeTrip.createdBy === user?.uid;
   const myMemberProfile = members.find((member) => member.uid === user?.uid);
 
   // Merge remote Supabase stops and local pending queue stops by stopId to prevent duplicate markers
@@ -543,6 +578,8 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
       onFallbackForeground={handleFallbackForeground}
       onRetrySync={handleManualSyncRetry}
       routePoints={routePoints}
+      plannedRoute={plannedRoute}
+      navigationStatuses={navigationStatuses}
       targetLat={targetLat}
       targetLng={targetLng}
       togglingSharing={togglingSharing}

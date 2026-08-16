@@ -43,6 +43,8 @@ const props: React.ComponentProps<typeof TripWorkspaceView> = {
   locations: [],
   stops: [],
   routePoints: [],
+  plannedRoute: null,
+  navigationStatuses: [],
   memberRows: [],
   activeMemberCount: 0,
   pendingCount: 0,
@@ -81,5 +83,74 @@ describe('TripWorkspaceView', () => {
   it('honors an alert notification target tab', () => {
     const view = render(<TripWorkspaceView {...props} initialTab="alerts" />);
     expect(view.getByText('No alerts recorded.')).toBeTruthy();
+  });
+
+  it('opens the organizer route planner without affecting an unplanned active trip', () => {
+    const navigate = jest.fn();
+    const view = render(<TripWorkspaceView {...props} navigation={{ navigate }} />);
+
+    expect(
+      view.getByText('No planned route. Actual trip tracking continues normally.'),
+    ).toBeTruthy();
+    fireEvent.press(view.getByText('Plan route'));
+    expect(navigate).toHaveBeenCalledWith('RoutePlanner', { tripId: 'trip-1' });
+  });
+
+  it('shows visual navigation and in-app predictive guidance', () => {
+    const plannedRoute = {
+      id: 'route-1',
+      tripId: 'trip-1',
+      version: 1,
+      isCurrent: true,
+      origin: { latitude: 0, longitude: 0, title: 'Start' },
+      destination: { latitude: 0, longitude: 0.01, title: 'Finish' },
+      distanceMeters: 1000,
+      durationSeconds: 120,
+      routingProvider: 'osrm',
+      createdAt: 1,
+      points: [],
+      waypoints: [],
+      steps: [
+        {
+          sequence: 0,
+          instruction: 'Turn right onto Main Street',
+          roadName: 'Main Street',
+          maneuverType: 'turn',
+          latitude: 0,
+          longitude: 0,
+          progressMeters: 300,
+          distanceMeters: 200,
+          durationSeconds: 20,
+        },
+      ],
+    };
+    const navigationStatuses = [
+      {
+        tripId: 'trip-1',
+        userId: 'user-1',
+        routeId: 'route-1',
+        state: 'ON_ROUTE' as const,
+        progressMeters: 100,
+        remainingDistanceMeters: 900,
+        nextStepSequence: 0,
+        smoothedSpeedMps: 10,
+        speedTrustworthy: true,
+        speedDifferenceWarning: false,
+        fallingBehindPredicted: true,
+        rerouteSuggested: false,
+      },
+    ];
+    const view = render(
+      <TripWorkspaceView
+        {...props}
+        plannedRoute={plannedRoute}
+        navigationStatuses={navigationStatuses}
+      />,
+    );
+
+    expect(view.getByText('NAVIGATION · Ease pace')).toBeTruthy();
+    expect(view.getByText('Turn right onto Main Street')).toBeTruthy();
+    fireEvent.press(view.getByText('Alerts'));
+    expect(view.getByText('Warning separation predicted within 2 minutes')).toBeTruthy();
   });
 });

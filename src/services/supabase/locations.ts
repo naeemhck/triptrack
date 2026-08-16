@@ -9,7 +9,7 @@ export async function upsertLocation(
   sampleId: string,
   routeCandidate = false,
 ): Promise<void> {
-  const { error } = await supabase.rpc('submit_trip_location', {
+  const { error } = await supabase.rpc('submit_trip_location_v2', {
     p_trip_id: tripId,
     p_sample_id: sampleId,
     p_latitude: location.lat,
@@ -17,6 +17,8 @@ export async function upsertLocation(
     p_accuracy: location.accuracy ?? null,
     p_sampled_at: toIso(location.sampledAt || Date.now()),
     p_route_candidate: routeCandidate,
+    p_speed_mps: location.speedMps ?? null,
+    p_heading: location.heading ?? null,
   });
   if (error) throw error;
 }

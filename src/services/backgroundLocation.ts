@@ -90,7 +90,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) =>
 
   if (data && data.locations && data.locations.length > 0) {
     const location = data.locations[data.locations.length - 1];
-    const { latitude, longitude, accuracy } = location.coords;
+    const { latitude, longitude, accuracy, speed, heading } = location.coords;
 
     try {
       // Read active background trip info persisted in AsyncStorage
@@ -126,6 +126,8 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) =>
           lat: latitude,
           lng: longitude,
           accuracy: accuracy ?? undefined,
+          speedMps: speed != null && speed >= 0 ? speed : undefined,
+          heading: heading != null && heading >= 0 ? heading : undefined,
           displayName,
           avatar: avatar || '',
           sharingEnabled: true,

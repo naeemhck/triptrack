@@ -20,6 +20,7 @@ import { colors } from '../../theme/colors';
 import { MemberLocation, TripStop } from '../../types/location';
 import { TripRoutePoint } from '../../types/route';
 import { Trip, TripAlertEvent, TripStatistics } from '../../types/trip';
+import { MemberNavigationStatus, PlannedRoute } from '../../types/navigation';
 import { TripMemberRowData } from './TripDetailView';
 import { TripSettingsScreen } from './TripSettingsScreen';
 import QRCode from 'react-native-qrcode-svg';
@@ -35,6 +36,8 @@ interface Props {
   locations: MemberLocation[];
   stops: TripStop[];
   routePoints: TripRoutePoint[];
+  plannedRoute: PlannedRoute | null;
+  navigationStatuses: MemberNavigationStatus[];
   memberRows: TripMemberRowData[];
   activeMemberCount: number;
   pendingCount: number;
@@ -93,6 +96,28 @@ export const TripWorkspaceView = (props: Props) => {
     props.statistics?.elapsedSeconds ||
     (props.trip.startedAt ? Math.max(0, (Date.now() - props.trip.startedAt) / 1000) : 0);
   const inviteLink = `triptrack://join/${props.trip.inviteCode}`;
+  const myNavigation = props.navigationStatuses.find((item) => item.userId === props.userId);
+  const leaderNavigation = props.navigationStatuses.find(
+    (item) => item.userId === props.trip.routeLeaderUserId,
+  );
+  const nextStep = props.plannedRoute?.steps.find(
+    (item) => item.sequence === myNavigation?.nextStepSequence,
+  );
+  const trustedSpeeds = props.navigationStatuses
+    .filter((item) => item.speedTrustworthy && item.smoothedSpeedMps != null)
+    .map((item) => item.smoothedSpeedMps as number);
+  const groupAverageSpeed = trustedSpeeds.length
+    ? trustedSpeeds.reduce((total, speed) => total + speed, 0) / trustedSpeeds.length
+    : undefined;
+  const guidance = props.navigationStatuses.some(
+    (item) => item.rerouteSuggested || item.state === 'OFF_ROUTE',
+  )
+    ? 'Regroup'
+    : props.navigationStatuses.some(
+          (item) => item.fallingBehindPredicted || item.speedDifferenceWarning,
+        )
+      ? 'Ease pace'
+      : 'Hold pace';
 
   const content = () => {
     if (tab === 'map')
@@ -132,6 +157,57 @@ export const TripWorkspaceView = (props: Props) => {
               <Text style={styles.secondaryText}>Share for 2 hours</Text>
             </TouchableOpacity>
           ) : null}
+          {props.plannedRoute ? (
+            <View style={styles.navigationCard}>
+              <View style={styles.navigationHeader}>
+                <View style={styles.flex}>
+                  <Text style={styles.navigationEyebrow}>NAVIGATION · {guidance}</Text>
+                  <Text style={styles.navigationTitle} numberOfLines={2}>
+                    {nextStep?.instruction || `Continue to ${props.plannedRoute.destination.title}`}
+                  </Text>
+                  <Text style={styles.sub}>
+                    {myNavigation?.remainingDistanceMeters != null
+                      ? `${(myNavigation.remainingDistanceMeters / 1000).toFixed(1)} km remaining`
+                      : `${(props.plannedRoute.distanceMeters / 1000).toFixed(1)} km planned`}
+                    {nextStep
+                      ? ` · next in ${Math.max(0, Math.round(nextStep.progressMeters - (myNavigation?.progressMeters || 0)))} m`
+                      : ''}
+                  </Text>
+                </View>
+                <Ionicons name="navigate" size={30} color={colors.link} />
+              </View>
+              <View style={styles.navigationStats}>
+                <Text style={styles.navigationMetric}>
+                  Leader{' '}
+                  {leaderNavigation?.speedTrustworthy && leaderNavigation.smoothedSpeedMps != null
+                    ? `${Math.round(leaderNavigation.smoothedSpeedMps * 3.6)} km/h`
+                    : '--'}
+                </Text>
+                <Text style={styles.navigationMetric}>
+                  Group{' '}
+                  {groupAverageSpeed != null ? `${Math.round(groupAverageSpeed * 3.6)} km/h` : '--'}
+                </Text>
+                <Text style={styles.navigationMetric}>
+                  Actual {((props.statistics?.routeDistanceMeters || 0) / 1000).toFixed(1)} km
+                </Text>
+              </View>
+            </View>
+          ) : props.isOrganizer && props.trip.status !== 'completed' ? (
+            <Text style={styles.empty}>
+              No planned route. Actual trip tracking continues normally.
+            </Text>
+          ) : null}
+          {props.isOrganizer && props.trip.status !== 'completed' ? (
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => props.navigation.navigate('RoutePlanner', { tripId: props.tripId })}
+            >
+              <Ionicons name="git-branch-outline" size={18} color={colors.primaryLight} />
+              <Text style={styles.secondaryText}>
+                {props.plannedRoute ? 'Edit or reroute' : 'Plan route'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           <View style={styles.map}>
             <TripMap
               ref={props.mapRef}
@@ -139,6 +215,8 @@ export const TripWorkspaceView = (props: Props) => {
               stops={props.stops}
               routePoints={props.routePoints}
               routeLeaderUserId={props.trip.routeLeaderUserId}
+              plannedRoute={props.plannedRoute}
+              navigationStatuses={props.navigationStatuses}
               userLocation={props.userCoords}
               onMarkStop={props.onMarkStop}
               allowMarkStop={props.trip.status === 'active'}
@@ -219,6 +297,7 @@ export const TripWorkspaceView = (props: Props) => {
               member={member}
               freshness={freshness}
               routeStatus={routeStatus}
+              navigationStatus={props.navigationStatuses.find((item) => item.userId === member.uid)}
               isMe={member.uid === props.userId}
               isHost={member.uid === props.trip.createdBy}
               isRouteLeader={member.uid === props.trip.routeLeaderUserId}
@@ -244,6 +323,39 @@ export const TripWorkspaceView = (props: Props) => {
       return (
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.sectionTitle}>Live status</Text>
+          {props.navigationStatuses
+            .filter(
+              (status) =>
+                status.fallingBehindPredicted ||
+                status.speedDifferenceWarning ||
+                status.rerouteSuggested,
+            )
+            .map((status) => (
+              <TouchableOpacity
+                key={`navigation_${status.userId}`}
+                style={styles.alertRow}
+                onPress={() => setTab('map')}
+              >
+                <Ionicons
+                  name={status.rerouteSuggested ? 'git-branch-outline' : 'speedometer-outline'}
+                  size={20}
+                  color={status.rerouteSuggested ? colors.critical : colors.warning}
+                />
+                <View style={styles.flex}>
+                  <Text style={styles.alertTitle}>
+                    {props.memberRows.find((row) => row.member.uid === status.userId)?.member
+                      .displayName || 'Member'}
+                  </Text>
+                  <Text style={styles.sub}>
+                    {status.rerouteSuggested
+                      ? 'Route deviation requires organizer review'
+                      : status.fallingBehindPredicted
+                        ? 'Warning separation predicted within 2 minutes'
+                        : 'Sustained speed difference'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
           {props.memberRows
             .filter((row) => row.routeStatus?.deltaMeters || row.freshness.state !== 'fresh')
             .map(({ member, routeStatus, freshness }) => (
@@ -434,6 +546,19 @@ const styles = StyleSheet.create({
     borderColor: colors.borderActive,
   },
   secondaryText: { color: colors.primaryLight, fontWeight: '700', fontSize: 13 },
+  navigationCard: {
+    padding: 12,
+    gap: 10,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.link,
+    borderRadius: 8,
+  },
+  navigationHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  navigationEyebrow: { color: colors.link, fontSize: 10, fontWeight: '800' },
+  navigationTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '800', marginTop: 3 },
+  navigationStats: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
+  navigationMetric: { color: colors.textSecondary, fontSize: 11, fontWeight: '700' },
   invite: {
     minHeight: 46,
     flexDirection: 'row',

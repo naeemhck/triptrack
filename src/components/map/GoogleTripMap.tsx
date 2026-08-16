@@ -55,6 +55,12 @@ export const GoogleTripMap = forwardRef<TripMapRef, TripMapProps>((props, ref) =
         showsUserLocation
         showsMyLocationButton={false}
         onMapLoaded={props.onMapLoaded}
+        onPress={(event) =>
+          props.onMapPress?.(
+            event.nativeEvent.coordinate.latitude,
+            event.nativeEvent.coordinate.longitude,
+          )
+        }
         onRegionChangeComplete={(region) =>
           props.onCameraChange?.({
             latitude: region.latitude,
@@ -63,6 +69,16 @@ export const GoogleTripMap = forwardRef<TripMapRef, TripMapProps>((props, ref) =
           })
         }
       >
+        {props.plannedRoute && props.plannedRoute.points.length > 1 ? (
+          <Polyline
+            coordinates={props.plannedRoute.points.map((point) => ({
+              latitude: point.latitude,
+              longitude: point.longitude,
+            }))}
+            strokeColor="#3B82F6"
+            strokeWidth={7}
+          />
+        ) : null}
         {props.routePoints && props.routePoints.length > 1 ? (
           <Polyline
             coordinates={props.routePoints.map((point) => ({
@@ -102,6 +118,24 @@ export const GoogleTripMap = forwardRef<TripMapRef, TripMapProps>((props, ref) =
             </Marker>
           );
         })}
+        {props.plannedRoute?.waypoints.map((waypoint) => (
+          <Marker
+            key={`waypoint_${waypoint.sequence}`}
+            coordinate={{ latitude: waypoint.latitude, longitude: waypoint.longitude }}
+            title={`${waypoint.sequence}. ${waypoint.title}`}
+            pinColor={waypoint.reachedAt ? colors.success : '#3B82F6'}
+          />
+        ))}
+        {props.plannedRoute ? (
+          <Marker
+            coordinate={{
+              latitude: props.plannedRoute.destination.latitude,
+              longitude: props.plannedRoute.destination.longitude,
+            }}
+            title={props.plannedRoute.destination.title}
+            pinColor="#3B82F6"
+          />
+        ) : null}
         {props.stops.map((stop) => (
           <Marker
             key={`stop_${stop.id}`}
