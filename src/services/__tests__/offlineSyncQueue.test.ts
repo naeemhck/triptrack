@@ -8,10 +8,12 @@ import {
   enqueueStopUpdate,
   getOfflineQueue,
   LEASE_DURATION_MS,
+  MAX_PENDING_LEADER_SAMPLES,
   processPendingSyncQueue,
   SYNC_INITIAL_RETRY_MS,
 } from '../offlineSyncQueue';
 import { upsertLocation } from '../supabase/locations';
+import { upsertStop } from '../supabase/stops';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
@@ -64,6 +66,65 @@ describe('offline sync queue', () => {
       'latest_location',
       'leader_route_sample',
     ]);
+  });
+
+  it('bounds queued leader route samples for one trip member', async () => {
+    let n = 0;
+    crypto.randomUUID.mockImplementation(() => {
+      n += 1;
+      return `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    });
+    for (let i = 0; i < MAX_PENDING_LEADER_SAMPLES + 5; i += 1) {
+      await enqueueLocation('t1', 'u1', { lat: i, lng: i, sampledAt: 1_000_000 + i }, true);
+    }
+    const queue = await getOfflineQueue();
+    expect(queue.filter((item) => item.operationType === 'latest_location')).toHaveLength(1);
+    expect(queue.filter((item) => item.operationType === 'leader_route_sample')).toHaveLength(
+      MAX_PENDING_LEADER_SAMPLES,
+    );
+    expect(queue.find((item) => item.operationType === 'latest_location')?.payload).toMatchObject({
+      lat: MAX_PENDING_LEADER_SAMPLES + 4,
+    });
+  });
+
+  it('processes stop work that arrives while the worker is already running', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    (upsertLocation as jest.Mock).mockImplementation(async () => {
+      await gate;
+    });
+    (upsertStop as jest.Mock).mockResolvedValue(undefined);
+
+    await enqueueLocation('t1', 'u1', { lat: 1, lng: 2 });
+    const first = processPendingSyncQueue('u1');
+    await new Promise<void>((resolve) => {
+      const timer = setInterval(() => {
+        if ((upsertLocation as jest.Mock).mock.calls.length) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 5);
+    });
+    await enqueueStop(
+      't1',
+      'u1',
+      {
+        id: 's1',
+        uid: 'u1',
+        displayName: 'N',
+        lat: 1,
+        lng: 2,
+        name: 'First',
+        createdAt: 1,
+      },
+      'manual_stop',
+    );
+    await processPendingSyncQueue('u1');
+    release();
+    await first;
+    expect(upsertStop).toHaveBeenCalled();
   });
 
   it('reclaims an expired processing lease', async () => {

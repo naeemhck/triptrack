@@ -31,4 +31,5 @@ export interface TripMapProps {
   onCameraChange?: (camera: CameraTarget) => void;
   onMapLoaded?: () => void;
   onMapPress?: (lat: number, lng: number) => void;
+  fillParent?: boolean;
 }

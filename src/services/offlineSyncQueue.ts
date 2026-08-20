@@ -51,9 +51,11 @@ export {
   SYNC_MAX_RETRY_MS,
   MAX_PENDING_PHOTOS,
 };
+export const MAX_PENDING_LEADER_SAMPLES = 20;
 export type { OfflineOperationType, OfflineSyncItem, SyncItemStatus };
 
 let isWorkerRunning = false;
+let workerRerunRequested = false;
 
 /**
  * Enqueue / Coalesce a Live Location sample (`latest_location`)
@@ -67,14 +69,28 @@ export const enqueueLocation = async (
 ): Promise<void> => {
   return runSerializedMutation(async (queue) => {
     const now = Date.now();
-    const itemId = `loc_${tripId}_${uid}`;
     const sampleId = Crypto.randomUUID();
+    const locationItemId = `loc_${tripId}_${uid}`;
+    let filtered = queue.filter((item) => item.id !== locationItemId);
 
-    // Filter out existing location item for this tripId + uid
-    const filtered = queue.filter((item) => item.id !== itemId);
+    if (isRouteLeader) {
+      const existingRouteSamples = filtered
+        .filter(
+          (item) =>
+            item.operationType === 'leader_route_sample' &&
+            item.tripId === tripId &&
+            item.uid === uid,
+        )
+        .sort((a, b) => (a.sampledAt || a.createdAt) - (b.sampledAt || b.createdAt));
+      if (existingRouteSamples.length >= MAX_PENDING_LEADER_SAMPLES) {
+        const dropCount = existingRouteSamples.length - MAX_PENDING_LEADER_SAMPLES + 1;
+        const dropIds = new Set(existingRouteSamples.slice(0, dropCount).map((item) => item.id));
+        filtered = filtered.filter((item) => !dropIds.has(item.id));
+      }
+    }
 
     const newItem: OfflineSyncItem = {
-      id: itemId,
+      id: locationItemId,
       operationType: 'latest_location',
       tripId,
       uid,
@@ -332,6 +348,7 @@ const syncSingleItem = async (item: OfflineSyncItem, currentUid: string): Promis
  */
 export const processPendingSyncQueue = async (currentUid?: string): Promise<void> => {
   if (isWorkerRunning) {
+    workerRerunRequested = true;
     logger.info('offline_queue.worker_already_running');
     return;
   }
@@ -339,101 +356,103 @@ export const processPendingSyncQueue = async (currentUid?: string): Promise<void
   isWorkerRunning = true;
 
   try {
-    const queue = await getOfflineQueue();
-    if (!queue || queue.length === 0) {
-      isWorkerRunning = false;
-      return;
-    }
-
-    const now = Date.now();
-    const readyItems = queue.filter(
-      (item) =>
-        (!currentUid || item.uid === currentUid) &&
-        (item.status === 'pending' || item.status === 'failed') &&
-        now >= item.nextRetryAt &&
-        item.attempts < MAX_ATTEMPTS,
-    );
-
-    if (readyItems.length === 0) {
-      isWorkerRunning = false;
-      return;
-    }
-
-    logger.info('offline_queue.processing', { queueCount: readyItems.length });
-
-    // Priority ordering: 1. latest_location, 2. manual_stop/auto_stop, 3. stop_update, 4. stop_photo
-    const typePriority: Record<OfflineOperationType, number> = {
-      latest_location: 1,
-      leader_route_sample: 2,
-      manual_stop: 3,
-      auto_stop: 3,
-      stop_update: 4,
-      stop_photo: 5,
-    };
-
-    readyItems.sort((a, b) => typePriority[a.operationType] - typePriority[b.operationType]);
-
-    for (const item of readyItems) {
-      // Lease item (use 180s for media uploads, 60s for standard operations)
-      const leaseMs = leaseDurationFor(item.operationType);
-      await runSerializedMutation(async (q) => {
-        const idx = q.findIndex((i) => i.id === item.id);
-        if (idx >= 0) {
-          q[idx] = {
-            ...q[idx],
-            status: 'processing',
-            processingStartedAt: now,
-            leaseExpiresAt: now + leaseMs,
-          };
-        }
-        return { updatedQueue: q, result: undefined };
-      });
-
-      try {
-        const success = await syncSingleItem(item, currentUid || item.uid);
-        if (success) {
-          // Remove completed queue item
-          await runSerializedMutation(async (q) => {
-            const remaining = q.filter((i) => i.id !== item.id);
-            return { updatedQueue: remaining, result: undefined };
-          });
-          logger.info('offline_queue.item_synchronized', { operationType: item.operationType });
-        }
-      } catch (err: unknown) {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : typeof err === 'object' && err !== null && 'message' in err
-              ? String(err.message)
-              : String(err || 'Sync error');
-        logger.warn('offline_queue.item_deferred', {
-          operationType: item.operationType,
-          attempt: item.attempts + 1,
-        });
-
-        // Bounded exponential backoff
-        const retry = nextRetryState(item.attempts, Date.now());
-
-        await runSerializedMutation(async (q) => {
-          const idx = q.findIndex((i) => i.id === item.id);
-          if (idx >= 0) {
-            q[idx] = {
-              ...q[idx],
-              attempts: retry.attempts,
-              nextRetryAt: retry.nextRetryAt,
-              status: retry.status,
-              error: errorMessage,
-              leaseExpiresAt: undefined,
-            };
-          }
-          return { updatedQueue: q, result: undefined };
-        });
-      }
-    }
+    do {
+      workerRerunRequested = false;
+      await processReadyQueueItems(currentUid);
+    } while (workerRerunRequested);
   } catch (globalErr) {
     logger.error('offline_queue.processor_deferred');
     reportError(globalErr, { operation: 'offlineQueue.process' });
   } finally {
     isWorkerRunning = false;
+    if (workerRerunRequested) {
+      workerRerunRequested = false;
+      void processPendingSyncQueue(currentUid);
+    }
+  }
+};
+
+const processReadyQueueItems = async (currentUid?: string): Promise<void> => {
+  const queue = await getOfflineQueue();
+  if (!queue || queue.length === 0) return;
+
+  const now = Date.now();
+  const readyItems = queue.filter(
+    (item) =>
+      (!currentUid || item.uid === currentUid) &&
+      (item.status === 'pending' || item.status === 'failed') &&
+      now >= item.nextRetryAt &&
+      item.attempts < MAX_ATTEMPTS,
+  );
+
+  if (readyItems.length === 0) return;
+
+  logger.info('offline_queue.processing', { queueCount: readyItems.length });
+
+  // Priority ordering: 1. latest_location, 2. manual_stop/auto_stop, 3. stop_update, 4. stop_photo
+  const typePriority: Record<OfflineOperationType, number> = {
+    latest_location: 1,
+    leader_route_sample: 2,
+    manual_stop: 3,
+    auto_stop: 3,
+    stop_update: 4,
+    stop_photo: 5,
+  };
+
+  readyItems.sort((a, b) => typePriority[a.operationType] - typePriority[b.operationType]);
+
+  for (const item of readyItems) {
+    const leaseMs = leaseDurationFor(item.operationType);
+    await runSerializedMutation(async (q) => {
+      const idx = q.findIndex((i) => i.id === item.id);
+      if (idx >= 0) {
+        q[idx] = {
+          ...q[idx],
+          status: 'processing',
+          processingStartedAt: now,
+          leaseExpiresAt: now + leaseMs,
+        };
+      }
+      return { updatedQueue: q, result: undefined };
+    });
+
+    try {
+      const success = await syncSingleItem(item, currentUid || item.uid);
+      if (success) {
+        await runSerializedMutation(async (q) => {
+          const remaining = q.filter((i) => i.id !== item.id);
+          return { updatedQueue: remaining, result: undefined };
+        });
+        logger.info('offline_queue.item_synchronized', { operationType: item.operationType });
+      }
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err
+            ? String(err.message)
+            : String(err || 'Sync error');
+      logger.warn('offline_queue.item_deferred', {
+        operationType: item.operationType,
+        attempt: item.attempts + 1,
+      });
+
+      const retry = nextRetryState(item.attempts, Date.now());
+
+      await runSerializedMutation(async (q) => {
+        const idx = q.findIndex((i) => i.id === item.id);
+        if (idx >= 0) {
+          q[idx] = {
+            ...q[idx],
+            attempts: retry.attempts,
+            nextRetryAt: retry.nextRetryAt,
+            status: retry.status,
+            error: errorMessage,
+            leaseExpiresAt: undefined,
+          };
+        }
+        return { updatedQueue: q, result: undefined };
+      });
+    }
   }
 };

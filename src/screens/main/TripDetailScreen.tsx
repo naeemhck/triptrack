@@ -19,7 +19,6 @@ import {
   removeTripMember,
 } from '../../services/tripLifecycle';
 import { Trip, TripAlertEvent, TripMember, TripStatistics } from '../../types/trip';
-import { TripStop } from '../../types/location';
 import { setRouteLeader } from '../../services/supabase/routes';
 import { tripDetailStyles as styles } from './TripDetailScreen.styles';
 import { TripWorkspaceView, WorkspaceTab } from './TripWorkspaceView';
@@ -33,6 +32,7 @@ import {
 import { reviewAutomaticStop } from '../../services/supabase/stops';
 import { subscribeToTripTable } from '../../services/supabase/realtime';
 import { rememberActiveTrip } from '../../services/tripWorkspacePersistence';
+import { countDurablePendingSync, mergeStopsWithPendingQueue } from '../../utils/tripStopDisplay';
 
 interface TripDetailScreenProps {
   route: any;
@@ -470,21 +470,8 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
 
   const myMemberProfile = members.find((member) => member.uid === user?.uid);
 
-  // Merge remote Supabase stops and local pending queue stops by stopId to prevent duplicate markers
-  const pendingTripItems = pendingQueue.filter((i) => i.tripId === tripId && i.uid === user?.uid);
-  const pendingStops: TripStop[] = pendingTripItems
-    .filter((i) => i.operationType === 'manual_stop' || i.operationType === 'auto_stop')
-    .map((i) => ({ ...(i.payload as TripStop), isPendingSync: true }));
-
-  const mergedStopsMap = new Map<string, TripStop>();
-  stops.forEach((s) => mergedStopsMap.set(s.id, s));
-  pendingStops.forEach((s) => {
-    if (!mergedStopsMap.has(s.id)) {
-      mergedStopsMap.set(s.id, s);
-    }
-  });
-  const displayStops = Array.from(mergedStopsMap.values());
-  const pendingCount = pendingTripItems.length;
+  const displayStops = mergeStopsWithPendingQueue(stops, pendingQueue, tripId, user?.uid);
+  const pendingCount = countDurablePendingSync(pendingQueue, tripId, user?.uid);
 
   const handleManualSyncRetry = async () => {
     if (user?.uid) {

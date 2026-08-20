@@ -31,7 +31,7 @@ export const TripActivityList = ({ stops, isOrganizer, onSelect, onReview }: Pro
     <View style={styles.list}>
       {stops.map((stop) => {
         const open = expanded === stop.id;
-        const category = categoryMeta[stop.category || 'general'];
+        const category = categoryMeta[stop.category || 'general'] || categoryMeta.general;
         const duration = stop.departedAt
           ? Math.max(1, Math.round((stop.departedAt - stop.createdAt) / 60000))
           : null;
@@ -54,6 +54,7 @@ export const TripActivityList = ({ stops, isOrganizer, onSelect, onReview }: Pro
                   {category.label} · {new Date(stop.createdAt).toLocaleString()}
                 </Text>
               </View>
+              {stop.isPendingSync ? <Text style={styles.pendingBadge}>Pending sync</Text> : null}
               {stop.reviewStatus === 'needs_review' ? (
                 <Text style={styles.reviewBadge}>Review</Text>
               ) : null}
@@ -144,6 +145,7 @@ const styles = StyleSheet.create({
   copy: { flex: 1 },
   title: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   meta: { color: colors.textMuted, fontSize: 11, marginTop: 3 },
+  pendingBadge: { color: colors.warning, fontSize: 10, fontWeight: '800' },
   reviewBadge: { color: colors.warning, fontSize: 10, fontWeight: '800' },
   details: { borderTopWidth: 1, borderTopColor: colors.border, padding: 12, gap: 6 },
   detailText: { color: colors.textSecondary, fontSize: 12 },

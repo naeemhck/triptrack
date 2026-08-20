@@ -80,6 +80,29 @@ describe('TripWorkspaceView', () => {
     expect(view.getByText('Personal trip settings')).toBeTruthy();
   });
 
+  it('lists marked stops on the Activity tab', () => {
+    const view = render(
+      <TripWorkspaceView
+        {...props}
+        initialTab="activity"
+        stops={[
+          {
+            id: 'stop-1',
+            uid: 'user-1',
+            displayName: 'Naeem',
+            lat: 1,
+            lng: 2,
+            name: 'Lunch stop',
+            createdAt: 1,
+            category: 'food',
+          },
+        ]}
+      />,
+    );
+    expect(view.getByText('Lunch stop')).toBeTruthy();
+    expect(view.getByText('1')).toBeTruthy();
+  });
+
   it('honors an alert notification target tab', () => {
     const view = render(<TripWorkspaceView {...props} initialTab="alerts" />);
     expect(view.getByText('No alerts recorded.')).toBeTruthy();

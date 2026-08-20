@@ -63,7 +63,7 @@ export const TripMap = forwardRef<TripMapRef, TripMapProps>((props, ref) => {
 
   const Renderer = provider === 'google' ? GoogleTripMap : MapLibreTripMap;
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, props.fillParent && styles.fillParent]}>
       <Renderer
         key={provider}
         ref={rendererRef}
@@ -98,6 +98,7 @@ TripMap.displayName = 'TripMap';
 
 const styles = StyleSheet.create({
   wrapper: { position: 'relative' },
+  fillParent: { flex: 1, minHeight: 0 },
   switcher: {
     position: 'absolute',
     top: 22,

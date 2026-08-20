@@ -24,7 +24,8 @@ const stopIcon = (category?: string): React.ComponentProps<typeof Ionicons>['nam
   return 'flag-outline';
 };
 
-const OPENFREEMAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+const OPENFREEMAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
+const GOOGLE_BLUE = '#1A73E8';
 
 export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
   (
@@ -44,6 +45,7 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
       initialCamera,
       onCameraChange,
       onMapPress,
+      fillParent,
     },
     ref,
   ) => {
@@ -98,6 +100,21 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
       }
     }, [targetLat, targetLng, locations.length]);
 
+    useEffect(() => {
+      if (!plannedRoute || plannedRoute.points.length < 2) return;
+      const lngs = plannedRoute.points.map((point) => point.longitude);
+      const lats = plannedRoute.points.map((point) => point.latitude);
+      const timer = setTimeout(() => {
+        cameraRef.current?.fitBounds(
+          [Math.max(...lngs), Math.max(...lats)],
+          [Math.min(...lngs), Math.min(...lats)],
+          fillParent ? 72 : 48,
+          800,
+        );
+      }, 400);
+      return () => clearTimeout(timer);
+    }, [fillParent, plannedRoute?.id, plannedRoute?.points.length]);
+
     const handleCenterOnMe = () => {
       if (userLocation) {
         cameraRef.current?.setCamera({
@@ -109,12 +126,15 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
     };
 
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, fillParent && styles.fillParent]}>
         <MapView
           style={styles.map}
           mapStyle={OPENFREEMAP_STYLE_URL}
           attributionEnabled
           logoEnabled={false}
+          compassEnabled
+          rotateEnabled
+          pitchEnabled
           onRegionDidChange={(feature) => {
             const coordinates = (feature.geometry as { coordinates?: unknown[] } | undefined)
               ?.coordinates;
@@ -151,7 +171,7 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
             >
               <LineLayer
                 id="planned-route-line"
-                style={{ lineColor: '#3B82F6', lineWidth: 7, lineOpacity: 0.72 }}
+                style={{ lineColor: GOOGLE_BLUE, lineWidth: 7, lineOpacity: 0.92 }}
               />
             </ShapeSource>
           ) : null}
@@ -280,12 +300,25 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
               </View>
             </PointAnnotation>
           ))}
+          {plannedRoute &&
+          (Math.abs(plannedRoute.origin.latitude - plannedRoute.destination.latitude) > 0.00001 ||
+            Math.abs(plannedRoute.origin.longitude - plannedRoute.destination.longitude) >
+              0.00001) ? (
+            <PointAnnotation
+              id="planned-origin"
+              coordinate={[plannedRoute.origin.longitude, plannedRoute.origin.latitude]}
+            >
+              <View style={[styles.stopMarker, { backgroundColor: '#34A853' }]}>
+                <Ionicons name="navigate" size={16} color="#FFF" />
+              </View>
+            </PointAnnotation>
+          ) : null}
           {plannedRoute ? (
             <PointAnnotation
               id="planned-destination"
               coordinate={[plannedRoute.destination.longitude, plannedRoute.destination.latitude]}
             >
-              <View style={[styles.stopMarker, { backgroundColor: '#3B82F6' }]}>
+              <View style={[styles.stopMarker, { backgroundColor: '#EA4335' }]}>
                 <Ionicons name="flag" size={18} color="#FFF" />
               </View>
             </PointAnnotation>
@@ -341,7 +374,7 @@ export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(
         </MapView>
 
         {/* Floating Action Controls */}
-        <View style={styles.fabControls}>
+        <View style={[styles.fabControls, fillParent && styles.fabRaised]}>
           {/* Center on Me FAB */}
           <TouchableOpacity style={styles.fabButton} onPress={handleCenterOnMe}>
             <Ionicons name="locate-outline" size={20} color={colors.textPrimary} />
@@ -387,6 +420,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginVertical: 12,
     position: 'relative',
+  },
+  fillParent: {
+    flex: 1,
+    height: undefined,
+    minHeight: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    marginVertical: 0,
   },
   map: {
     ...StyleSheet.absoluteFillObject,
@@ -527,6 +568,9 @@ const styles = StyleSheet.create({
     right: 12,
     flexDirection: 'row',
     gap: 8,
+  },
+  fabRaised: {
+    bottom: 168,
   },
   fabButton: {
     backgroundColor: colors.surface,

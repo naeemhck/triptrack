@@ -122,160 +122,137 @@ export const TripWorkspaceView = (props: Props) => {
   const content = () => {
     if (tab === 'map')
       return (
-        <ScrollView contentContainerStyle={styles.content}>
-          {props.pendingCount ? (
-            <TouchableOpacity onPress={props.onRetrySync}>
-              <Text style={styles.pending}>
-                {props.pendingCount} offline operation{props.pendingCount === 1 ? '' : 's'} pending
-                {' \u00b7 Tap to retry'}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-          {props.loadingData ? <ActivityIndicator color={colors.primary} /> : null}
-          {props.trip.status === 'planned' ? (
-            <View style={styles.plannedCard}>
-              <View style={styles.flex}>
-                <Text style={styles.plannedTitle}>Trip Planned 📝</Text>
-                <Text style={styles.sub}>
-                  {props.trip.routeLeaderUserId
-                    ? `Leader: ${props.memberRows.find((r) => r.member.uid === props.trip.routeLeaderUserId)?.member.displayName || 'Assigned'}`
-                    : 'No Route Leader assigned yet.'}
+        <View style={styles.mapScreen}>
+          <TripMap
+            ref={props.mapRef}
+            fillParent
+            locations={props.locations}
+            stops={props.stops}
+            routePoints={props.routePoints}
+            routeLeaderUserId={props.trip.routeLeaderUserId}
+            plannedRoute={props.plannedRoute}
+            navigationStatuses={props.navigationStatuses}
+            userLocation={props.userCoords}
+            onMarkStop={props.onMarkStop}
+            allowMarkStop={props.trip.status === 'active'}
+            targetLat={props.targetLat}
+            targetLng={props.targetLng}
+            highlightStopId={props.highlightStopId}
+          />
+          <View style={styles.mapTopOverlay} pointerEvents="box-none">
+            {props.pendingCount ? (
+              <TouchableOpacity style={styles.mapChip} onPress={props.onRetrySync}>
+                <Text style={styles.pending}>
+                  {props.pendingCount} stop update{props.pendingCount === 1 ? '' : 's'} waiting to
+                  sync · Tap to retry
                 </Text>
-                <Text style={styles.sub}>
-                  Live location sharing starts when the trip is started.
-                </Text>
-              </View>
-              {props.isOrganizer ? (
-                <TouchableOpacity style={styles.startTripButton} onPress={props.onStartTrip}>
-                  <Ionicons name="play" size={18} color="#FFF" />
-                  <Text style={styles.primaryText}>Start Trip 🚀</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          ) : null}
-          {props.trip.status === 'active' ? (
-            <View style={styles.sharingRow}>
-              <View style={styles.flex}>
-                <Text style={styles.sectionTitle}>
-                  {props.isSharingEnabled ? 'Location sharing on' : 'Location sharing off'}
-                </Text>
-                <Text style={styles.sub}>
-                  {props.sharingExpiresAt
-                    ? `Ends ${new Date(props.sharingExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                    : 'Choose indefinite or timed sharing.'}
-                </Text>
-              </View>
-              {props.togglingSharing ? (
-                <ActivityIndicator color={colors.primary} />
-              ) : (
-                <Switch value={props.isSharingEnabled} onValueChange={props.onToggleSharing} />
-              )}
-            </View>
-          ) : null}
-          {props.trip.status === 'active' && props.isSharingEnabled ? (
-            <TouchableOpacity style={styles.secondaryButton} onPress={props.onTimedSharing}>
-              <Ionicons name="timer-outline" size={18} color={colors.primaryLight} />
-              <Text style={styles.secondaryText}>Share for 2 hours</Text>
-            </TouchableOpacity>
-          ) : null}
-          {props.plannedRoute ? (
-            <View style={styles.navigationCard}>
-              <View style={styles.navigationHeader}>
+              </TouchableOpacity>
+            ) : null}
+            {props.loadingData ? <ActivityIndicator color={colors.primary} /> : null}
+            {props.trip.status === 'planned' ? (
+              <View style={styles.plannedCard}>
                 <View style={styles.flex}>
-                  <Text style={styles.navigationEyebrow}>NAVIGATION · {guidance}</Text>
-                  <Text style={styles.navigationTitle} numberOfLines={2}>
-                    {nextStep?.instruction || `Continue to ${props.plannedRoute.destination.title}`}
+                  <Text style={styles.plannedTitle}>Trip Planned 📝</Text>
+                  <Text style={styles.sub}>
+                    {props.trip.routeLeaderUserId
+                      ? `Leader: ${props.memberRows.find((r) => r.member.uid === props.trip.routeLeaderUserId)?.member.displayName || 'Assigned'}`
+                      : 'No Route Leader assigned yet.'}
                   </Text>
                   <Text style={styles.sub}>
-                    {myNavigation?.remainingDistanceMeters != null
-                      ? `${(myNavigation.remainingDistanceMeters / 1000).toFixed(1)} km remaining`
-                      : `${(props.plannedRoute.distanceMeters / 1000).toFixed(1)} km planned`}
-                    {nextStep
-                      ? ` · next in ${Math.max(0, Math.round(nextStep.progressMeters - (myNavigation?.progressMeters || 0)))} m`
-                      : ''}
+                    Live location sharing starts when the trip is started.
                   </Text>
                 </View>
-                <Ionicons name="navigate" size={30} color={colors.link} />
+                {props.isOrganizer ? (
+                  <TouchableOpacity style={styles.startTripButton} onPress={props.onStartTrip}>
+                    <Ionicons name="play" size={18} color="#FFF" />
+                    <Text style={styles.primaryText}>Start Trip 🚀</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
-              <View style={styles.navigationStats}>
-                <Text style={styles.navigationMetric}>
-                  Leader{' '}
-                  {leaderNavigation?.speedTrustworthy && leaderNavigation.smoothedSpeedMps != null
-                    ? `${Math.round(leaderNavigation.smoothedSpeedMps * 3.6)} km/h`
-                    : '--'}
-                </Text>
-                <Text style={styles.navigationMetric}>
-                  Group{' '}
-                  {groupAverageSpeed != null ? `${Math.round(groupAverageSpeed * 3.6)} km/h` : '--'}
-                </Text>
-                <Text style={styles.navigationMetric}>
-                  Actual {((props.statistics?.routeDistanceMeters || 0) / 1000).toFixed(1)} km
-                </Text>
+            ) : null}
+            {props.trip.status === 'active' ? (
+              <View style={styles.sharingCard}>
+                <View style={styles.flex}>
+                  <Text style={styles.sectionTitle}>
+                    {props.isSharingEnabled ? 'Location sharing on' : 'Location sharing off'}
+                  </Text>
+                  <Text style={styles.sub}>
+                    {props.sharingExpiresAt
+                      ? `Ends ${new Date(props.sharingExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                      : 'Choose indefinite or timed sharing.'}
+                  </Text>
+                </View>
+                {props.togglingSharing ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <Switch value={props.isSharingEnabled} onValueChange={props.onToggleSharing} />
+                )}
               </View>
-            </View>
-          ) : props.isOrganizer && props.trip.status !== 'completed' ? (
-            <Text style={styles.empty}>
-              No planned route. Actual trip tracking continues normally.
-            </Text>
-          ) : null}
-          {props.isOrganizer && props.trip.status !== 'completed' ? (
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => props.navigation.navigate('RoutePlanner', { tripId: props.tripId })}
-            >
-              <Ionicons name="git-branch-outline" size={18} color={colors.primaryLight} />
-              <Text style={styles.secondaryText}>
-                {props.plannedRoute ? 'Edit or reroute' : 'Plan route'}
+            ) : null}
+            {props.trip.status === 'active' && props.isSharingEnabled ? (
+              <TouchableOpacity style={styles.mapChip} onPress={props.onTimedSharing}>
+                <Ionicons name="timer-outline" size={16} color={colors.primaryLight} />
+                <Text style={styles.secondaryText}>Share for 2 hours</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          <View style={styles.mapBottomOverlay} pointerEvents="box-none">
+            {props.plannedRoute ? (
+              <View style={styles.navigationCard}>
+                <View style={styles.navigationHeader}>
+                  <View style={styles.flex}>
+                    <Text style={styles.navigationEyebrow}>NAVIGATION · {guidance}</Text>
+                    <Text style={styles.navigationTitle} numberOfLines={2}>
+                      {nextStep?.instruction ||
+                        `Continue to ${props.plannedRoute.destination.title}`}
+                    </Text>
+                    <Text style={styles.sub}>
+                      {myNavigation?.remainingDistanceMeters != null
+                        ? `${(myNavigation.remainingDistanceMeters / 1000).toFixed(1)} km remaining`
+                        : `${(props.plannedRoute.distanceMeters / 1000).toFixed(1)} km planned`}
+                      {nextStep
+                        ? ` · next in ${Math.max(0, Math.round(nextStep.progressMeters - (myNavigation?.progressMeters || 0)))} m`
+                        : ''}
+                    </Text>
+                  </View>
+                  <Ionicons name="navigate" size={30} color={colors.link} />
+                </View>
+                <View style={styles.navigationStats}>
+                  <Text style={styles.navigationMetric}>
+                    Leader{' '}
+                    {leaderNavigation?.speedTrustworthy && leaderNavigation.smoothedSpeedMps != null
+                      ? `${Math.round(leaderNavigation.smoothedSpeedMps * 3.6)} km/h`
+                      : '--'}
+                  </Text>
+                  <Text style={styles.navigationMetric}>
+                    Group{' '}
+                    {groupAverageSpeed != null
+                      ? `${Math.round(groupAverageSpeed * 3.6)} km/h`
+                      : '--'}
+                  </Text>
+                  <Text style={styles.navigationMetric}>
+                    Actual {((props.statistics?.routeDistanceMeters || 0) / 1000).toFixed(1)} km
+                  </Text>
+                </View>
+              </View>
+            ) : props.isOrganizer && props.trip.status !== 'completed' ? (
+              <Text style={styles.empty}>
+                No planned route. Actual trip tracking continues normally.
               </Text>
-            </TouchableOpacity>
-          ) : null}
-          <View style={styles.map}>
-            <TripMap
-              ref={props.mapRef}
-              locations={props.locations}
-              stops={props.stops}
-              routePoints={props.routePoints}
-              routeLeaderUserId={props.trip.routeLeaderUserId}
-              plannedRoute={props.plannedRoute}
-              navigationStatuses={props.navigationStatuses}
-              userLocation={props.userCoords}
-              onMarkStop={props.onMarkStop}
-              allowMarkStop={props.trip.status === 'active'}
-              targetLat={props.targetLat}
-              targetLng={props.targetLng}
-              highlightStopId={props.highlightStopId}
-            />
+            ) : null}
+            {props.isOrganizer && props.trip.status !== 'completed' ? (
+              <TouchableOpacity
+                style={styles.routePlannerButton}
+                onPress={() => props.navigation.navigate('RoutePlanner', { tripId: props.tripId })}
+              >
+                <Ionicons name="git-branch-outline" size={18} color="#FFF" />
+                <Text style={styles.primaryText}>
+                  {props.plannedRoute ? 'Edit or reroute' : 'Plan route'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
-          <View style={styles.qr}>
-            <QRCode
-              value={inviteLink}
-              size={116}
-              backgroundColor={colors.surface}
-              color={colors.textPrimary}
-            />
-            <Text style={styles.sectionTitle}>{props.trip.inviteCode}</Text>
-            <Text style={styles.sub}>Scan to join this trip</Text>
-            <TouchableOpacity
-              style={styles.copyButton}
-              onPress={() => void Clipboard.setStringAsync(props.trip.inviteCode)}
-            >
-              <Ionicons name="copy-outline" size={16} color={colors.link} />
-              <Text style={styles.secondaryText}>Copy code</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            style={styles.invite}
-            onPress={() =>
-              void Share.share({
-                title: `Join ${props.trip.name}`,
-                message: `Join ${props.trip.name} with code ${props.trip.inviteCode}\n${inviteLink}`,
-              })
-            }
-          >
-            <Ionicons name="share-social-outline" size={18} color={colors.primaryLight} />
-            <Text style={styles.secondaryText}>Share invite</Text>
-          </TouchableOpacity>
-        </ScrollView>
+        </View>
       );
     if (tab === 'activity')
       return (
@@ -287,8 +264,16 @@ export const TripWorkspaceView = (props: Props) => {
             />
             <Stat label="Elapsed" value={durationLabel(elapsed)} />
             <Stat label="Stopped" value={durationLabel(props.statistics?.stoppedSeconds)} />
-            <Stat label="Stops" value={String(props.statistics?.stopCount ?? props.stops.length)} />
+            <Stat label="Stops" value={String(props.stops.length)} />
           </View>
+          {props.pendingCount ? (
+            <TouchableOpacity onPress={props.onRetrySync}>
+              <Text style={styles.pending}>
+                {props.pendingCount} stop update{props.pendingCount === 1 ? '' : 's'} waiting to
+                sync · Tap to retry
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           {props.trip.status === 'active' ? (
             <TouchableOpacity style={styles.primaryButton} onPress={() => props.onMarkStop()}>
               <Ionicons name="add" size={20} color="#FFF" />
@@ -322,6 +307,35 @@ export const TripWorkspaceView = (props: Props) => {
           <Text style={styles.sectionTitle}>
             {props.activeMemberCount} active · {props.memberRows.length} members
           </Text>
+          <View style={styles.qr}>
+            <QRCode
+              value={inviteLink}
+              size={116}
+              backgroundColor={colors.surface}
+              color={colors.textPrimary}
+            />
+            <Text style={styles.sectionTitle}>{props.trip.inviteCode}</Text>
+            <Text style={styles.sub}>Scan to join this trip</Text>
+            <TouchableOpacity
+              style={styles.copyButton}
+              onPress={() => void Clipboard.setStringAsync(props.trip.inviteCode)}
+            >
+              <Ionicons name="copy-outline" size={16} color={colors.link} />
+              <Text style={styles.secondaryText}>Copy code</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.invite}
+              onPress={() =>
+                void Share.share({
+                  title: `Join ${props.trip.name}`,
+                  message: `Join ${props.trip.name} with code ${props.trip.inviteCode}\n${inviteLink}`,
+                })
+              }
+            >
+              <Ionicons name="share-social-outline" size={18} color={colors.primaryLight} />
+              <Text style={styles.secondaryText}>Share invite</Text>
+            </TouchableOpacity>
+          </View>
           {props.memberRows.map(({ member, freshness, routeStatus }) => (
             <MemberRow
               key={member.uid}
@@ -552,8 +566,52 @@ const styles = StyleSheet.create({
   status: { color: colors.textMuted, fontSize: 10, textTransform: 'uppercase' },
   active: { color: colors.success },
   sub: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },
-  map: { height: 430, borderRadius: 8, overflow: 'hidden' },
-  sharingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  mapScreen: { flex: 1, backgroundColor: colors.background },
+  mapTopOverlay: {
+    position: 'absolute',
+    top: 8,
+    left: 10,
+    right: 10,
+    gap: 8,
+  },
+  mapBottomOverlay: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    bottom: 10,
+    gap: 8,
+  },
+  mapChip: {
+    alignSelf: 'flex-start',
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sharingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+  },
+  routePlannerButton: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    borderRadius: 24,
+    backgroundColor: colors.primaryAction,
+  },
   sectionTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 4 },
   pending: { color: colors.warning, fontSize: 12, fontWeight: '700' },
   primaryButton: {
@@ -580,10 +638,10 @@ const styles = StyleSheet.create({
   navigationCard: {
     padding: 12,
     gap: 10,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.link,
-    borderRadius: 8,
+    borderRadius: 16,
   },
   navigationHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   navigationEyebrow: { color: colors.link, fontSize: 10, fontWeight: '800' },
@@ -624,7 +682,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   alertTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '700' },
-  empty: { color: colors.textMuted, textAlign: 'center', padding: 24 },
+  empty: {
+    color: colors.textPrimary,
+    textAlign: 'center',
+    padding: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   leave: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   leaveText: { color: colors.critical, fontWeight: '700' },
   tabBar: {

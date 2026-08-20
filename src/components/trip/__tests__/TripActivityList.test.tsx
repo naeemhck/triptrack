@@ -45,4 +45,16 @@ describe('TripActivityList', () => {
     fireEvent.press(view.getByRole('button', { expanded: false }));
     expect(view.queryByText('Confirm')).toBeNull();
   });
+
+  it('shows a pending-sync badge for local unsynced stops', () => {
+    const view = render(
+      <TripActivityList
+        stops={[{ ...stop, isPendingSync: true, reviewStatus: 'not_required' }]}
+        isOrganizer={false}
+        onSelect={jest.fn()}
+        onReview={jest.fn()}
+      />,
+    );
+    expect(view.getByText('Pending sync')).toBeTruthy();
+  });
 });

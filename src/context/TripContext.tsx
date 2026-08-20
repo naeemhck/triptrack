@@ -158,8 +158,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const next = await listStops(tripId);
         if (active) callback(next);
-      } catch {
-        if (__DEV__) console.warn('[Realtime] Unable to refresh trip stops.');
+      } catch (error) {
+        if (__DEV__) console.warn('[Realtime] Unable to refresh trip stops.', error);
       }
     };
     void refresh();

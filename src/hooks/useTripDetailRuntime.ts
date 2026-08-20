@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { registerForPushNotificationsAsync } from '../services/notifications';
 import {
@@ -128,12 +129,38 @@ export const useTripDetailRuntime = ({
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const run = async () => {
+        try {
+          const queue = await getOfflineQueue();
+          if (active) setPendingQueue(queue);
+        } catch {
+          // ignore
+        }
+        if (!user?.uid || !active) return;
+        await processPendingSyncQueue(user.uid);
+        try {
+          const next = await getOfflineQueue();
+          if (active) setPendingQueue(next);
+        } catch {
+          // ignore
+        }
+      };
+      void run();
+      return () => {
+        active = false;
+      };
+    }, [user?.uid]),
+  );
+
   // Screen-level display timer: ticks once per minute for UI freshness recalculations (no database writes)
   useEffect(() => {
-    refreshQueueState();
+    void refreshQueueState();
     const timer = setInterval(() => {
       setTickCount((prev) => prev + 1);
-      refreshQueueState();
+      void refreshQueueState();
     }, 60000);
     return () => clearInterval(timer);
   }, []);
@@ -153,7 +180,9 @@ export const useTripDetailRuntime = ({
       setTickCount((prev) => prev + 1); // Force immediate freshness recalculation on app resume
       refreshQueueState();
       if (user?.uid) {
-        processPendingSyncQueue(user.uid);
+        void processPendingSyncQueue(user.uid).finally(() => {
+          void refreshQueueState();
+        });
       }
     };
 
@@ -315,7 +344,9 @@ export const useTripDetailRuntime = ({
         },
         activeTrip?.routeLeaderUserId === user.uid,
       );
-      void processPendingSyncQueue(user.uid);
+      void processPendingSyncQueue(user.uid).finally(() => {
+        void refreshQueueState();
+      });
       await processLocationForStopDetection(
         tripId,
         user.uid,

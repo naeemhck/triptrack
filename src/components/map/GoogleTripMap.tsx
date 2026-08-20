@@ -46,7 +46,7 @@ export const GoogleTripMap = forwardRef<TripMapRef, TripMapProps>((props, ref) =
   }));
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, props.fillParent && styles.fillParent]}>
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -191,6 +191,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderWidth: 1,
     marginVertical: 12,
+  },
+  fillParent: {
+    flex: 1,
+    height: undefined,
+    minHeight: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    marginVertical: 0,
   },
   member: {
     flexDirection: 'row',

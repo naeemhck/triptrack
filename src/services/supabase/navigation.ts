@@ -9,6 +9,12 @@ import {
   RouteCoordinate,
   RoutePreview,
 } from '../../types/navigation';
+import {
+  calculatePublicRoute,
+  searchPublicPlaces,
+  shouldUsePublicRoutingFallback,
+} from '../../utils/openMapRouting';
+import { listLocations } from './locations';
 import { toMillis } from './mappers';
 
 const mapPoint = (row: any): PlannedRoutePoint => ({
@@ -43,18 +49,90 @@ const mapStep = (row: any): PlannedRouteStep => ({
   durationSeconds: row.duration_seconds,
 });
 
+const mapPlaceResults = (items: any[]): PlaceSearchResult[] =>
+  (items || []).map((item: any) => ({
+    id: item.id,
+    title: item.label || item.title,
+    subtitle: item.detail || item.subtitle || undefined,
+    latitude: item.latitude,
+    longitude: item.longitude,
+  }));
+
+const mapRoutePreview = (
+  data: any,
+  origin: RouteCoordinate | null,
+  destination: RouteCoordinate,
+): RoutePreview => ({
+  origin: {
+    latitude: data.origin.latitude,
+    longitude: data.origin.longitude,
+    title: data.origin.name || data.origin.title || origin?.title || 'Route Leader location',
+  },
+  destination: {
+    latitude: data.destination.latitude,
+    longitude: data.destination.longitude,
+    title: data.destination.name || data.destination.title || destination.title || 'Destination',
+  },
+  geometryGeoJson: data.geometry || data.geometryGeoJson,
+  distanceMeters: data.distanceMeters,
+  durationSeconds: data.durationSeconds,
+  routingProvider: data.routingProvider,
+  points: (data.points || []).map(mapPoint),
+  waypoints: (data.waypoints || []).map((point: any) =>
+    mapWaypoint({
+      ...point,
+      title: point.name || point.title || `Waypoint ${point.sequence}`,
+      radius_meters: point.radius_meters || point.radiusMeters || 75,
+    }),
+  ),
+  steps: (data.steps || []).map(mapStep),
+});
+
+const invokeErrorMessage = (error: unknown, data: unknown): string => {
+  if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
+    return data.error;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return 'The routing service could not complete this request.';
+};
+
+export async function resolveRouteOrigin(
+  tripId: string,
+  origin: RouteCoordinate | null,
+): Promise<RouteCoordinate> {
+  if (origin) return origin;
+  const { data: trip, error } = await supabase
+    .from('trips')
+    .select('route_leader_user_id')
+    .eq('id', tripId)
+    .maybeSingle();
+  if (error) throw error;
+  const leaderId = trip?.route_leader_user_id as string | undefined;
+  if (!leaderId) {
+    throw new Error('Pin an origin on the map, or assign a Route Leader first.');
+  }
+  const locations = await listLocations(tripId);
+  const leader = locations.find((item) => item.uid === leaderId);
+  const sampledAt = leader?.sampledAt || leader?.updatedAt || 0;
+  if (!leader || Date.now() - sampledAt > 5 * 60 * 1000) {
+    throw new Error('Route Leader needs a fresh location, or pin an origin on the map.');
+  }
+  return {
+    latitude: leader.lat,
+    longitude: leader.lng,
+    title: leader.displayName ? `${leader.displayName} location` : 'Route Leader location',
+  };
+}
+
 export async function searchPlaces(tripId: string, query: string): Promise<PlaceSearchResult[]> {
   const { data, error } = await supabase.functions.invoke('search-places', {
     body: { tripId, query: query.trim() },
   });
-  if (error) throw error;
-  return (data?.results || []).map((item: any) => ({
-    id: item.id,
-    title: item.label,
-    subtitle: item.detail || undefined,
-    latitude: item.latitude,
-    longitude: item.longitude,
-  }));
+  if (!error && Array.isArray(data?.results)) return mapPlaceResults(data.results);
+  if (!shouldUsePublicRoutingFallback(error, data)) {
+    throw new Error(invokeErrorMessage(error, data));
+  }
+  return searchPublicPlaces(query);
 }
 
 export async function calculateRoute(
@@ -63,40 +141,22 @@ export async function calculateRoute(
   destination: RouteCoordinate,
   waypoints: RouteCoordinate[],
 ): Promise<RoutePreview> {
+  const resolvedOrigin = await resolveRouteOrigin(tripId, origin);
   const { data, error } = await supabase.functions.invoke('calculate-route', {
     body: {
       tripId,
-      origin: origin ? { ...origin, name: origin.title } : null,
+      origin: { ...resolvedOrigin, name: resolvedOrigin.title },
       destination: { ...destination, name: destination.title },
       waypoints: waypoints.map((point) => ({ ...point, name: point.title })),
     },
   });
-  if (error) throw error;
-  return {
-    origin: {
-      latitude: data.origin.latitude,
-      longitude: data.origin.longitude,
-      title: data.origin.name || origin?.title || 'Route Leader location',
-    },
-    destination: {
-      latitude: data.destination.latitude,
-      longitude: data.destination.longitude,
-      title: data.destination.name || destination.title || 'Destination',
-    },
-    geometryGeoJson: data.geometry,
-    distanceMeters: data.distanceMeters,
-    durationSeconds: data.durationSeconds,
-    routingProvider: data.routingProvider,
-    points: (data.points || []).map(mapPoint),
-    waypoints: (data.waypoints || []).map((point: any) =>
-      mapWaypoint({
-        ...point,
-        title: point.name || `Waypoint ${point.sequence}`,
-        radius_meters: point.radius_meters || 75,
-      }),
-    ),
-    steps: (data.steps || []).map(mapStep),
-  };
+  if (!error && data?.origin && data?.destination && data?.points) {
+    return mapRoutePreview(data, resolvedOrigin, destination);
+  }
+  if (!shouldUsePublicRoutingFallback(error, data)) {
+    throw new Error(invokeErrorMessage(error, data));
+  }
+  return calculatePublicRoute(resolvedOrigin, destination, waypoints);
 }
 
 export async function savePlannedRoute(tripId: string, route: RoutePreview): Promise<string> {

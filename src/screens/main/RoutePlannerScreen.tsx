@@ -50,20 +50,49 @@ export const RoutePlannerScreen = ({ route, navigation }: any) => {
       .catch((error) => reportError(error, { operation: 'routePlanner.load' }));
   }, [reroute, tripId]);
 
-  const mapRoute = useMemo(
-    () =>
-      preview
-        ? {
-            ...preview,
-            id: 'preview',
-            tripId,
-            version: 0,
-            isCurrent: true,
-            createdAt: Date.now(),
-          }
-        : null,
-    [preview, tripId],
-  );
+  const mapRoute = useMemo(() => {
+    if (preview) {
+      return {
+        ...preview,
+        id: 'preview',
+        tripId,
+        version: 0,
+        isCurrent: true,
+        createdAt: Date.now(),
+      };
+    }
+    const fallback = origin || destination || waypoints[0];
+    if (!fallback) return null;
+    return {
+      id: 'draft',
+      tripId,
+      version: 0,
+      isCurrent: true,
+      createdAt: Date.now(),
+      origin: {
+        latitude: (origin || fallback).latitude,
+        longitude: (origin || fallback).longitude,
+        title: origin?.title || 'Origin',
+      },
+      destination: {
+        latitude: (destination || fallback).latitude,
+        longitude: (destination || fallback).longitude,
+        title: destination?.title || 'Destination',
+      },
+      distanceMeters: 0,
+      durationSeconds: 0,
+      routingProvider: 'osrm',
+      points: [],
+      waypoints: waypoints.map((point, index) => ({
+        sequence: index + 1,
+        title: point.title || `Waypoint ${index + 1}`,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        radiusMeters: 75,
+      })),
+      steps: [],
+    };
+  }, [destination, origin, preview, tripId, waypoints]);
 
   const selectCoordinate = (coordinate: RouteCoordinate) => {
     const selected = { ...coordinate, title: coordinate.title || 'Pinned location' };
@@ -83,7 +112,12 @@ export const RoutePlannerScreen = ({ route, navigation }: any) => {
       setResults(await searchPlaces(tripId, query));
     } catch (error) {
       reportError(error, { operation: 'routePlanner.search' });
-      Alert.alert('Search unavailable', 'Place search is temporarily unavailable. Try again.');
+      Alert.alert(
+        'Search unavailable',
+        error instanceof Error
+          ? error.message
+          : 'Place search is temporarily unavailable. Try again.',
+      );
     } finally {
       setBusy(false);
     }
@@ -101,7 +135,9 @@ export const RoutePlannerScreen = ({ route, navigation }: any) => {
       reportError(error, { operation: 'routePlanner.calculate' });
       Alert.alert(
         'Route unavailable',
-        'The routing service could not calculate this route. Try again.',
+        error instanceof Error
+          ? error.message
+          : 'Pin an origin and destination, then preview the driving route.',
       );
     } finally {
       setBusy(false);
@@ -146,7 +182,7 @@ export const RoutePlannerScreen = ({ route, navigation }: any) => {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
@@ -158,122 +194,137 @@ export const RoutePlannerScreen = ({ route, navigation }: any) => {
           </Text>
         </View>
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.segment}>
-          {(['origin', 'destination', 'waypoint'] as SelectionTarget[]).map((item) => (
+      <View style={styles.mapScreen}>
+        <TripMap
+          fillParent
+          locations={[]}
+          stops={[]}
+          routePoints={[]}
+          plannedRoute={mapRoute}
+          userLocation={null}
+          onMarkStop={() => undefined}
+          allowMarkStop={false}
+          onMapPress={(latitude, longitude) => selectCoordinate({ latitude, longitude })}
+          initialCamera={
+            destination
+              ? { ...destination, zoom: 11 }
+              : origin
+                ? { ...origin, zoom: 12 }
+                : undefined
+          }
+        />
+        <View style={styles.topPanel} pointerEvents="box-none">
+          <View style={styles.segment}>
+            {(['origin', 'destination', 'waypoint'] as SelectionTarget[]).map((item) => (
+              <TouchableOpacity
+                key={item}
+                style={[styles.segmentItem, target === item && styles.segmentActive]}
+                onPress={() => setTarget(item)}
+              >
+                <Text style={[styles.segmentText, target === item && styles.segmentTextActive]}>
+                  {item === 'waypoint' ? 'Stop' : item[0].toUpperCase() + item.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.searchRow}>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={`Search ${target === 'waypoint' ? 'stop' : target}`}
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+              returnKeyType="search"
+              onSubmitEditing={() => void runSearch()}
+            />
+            <TouchableOpacity style={styles.searchButton} onPress={() => void runSearch()}>
+              <Ionicons name="search" size={20} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+          {target === 'origin' ? (
             <TouchableOpacity
-              key={item}
-              style={[styles.segmentItem, target === item && styles.segmentActive]}
-              onPress={() => setTarget(item)}
+              style={styles.secondaryButton}
+              onPress={() => {
+                setOrigin(null);
+                setPreview(null);
+              }}
             >
-              <Text style={[styles.segmentText, target === item && styles.segmentTextActive]}>
-                {item === 'waypoint' ? 'Waypoint' : item[0].toUpperCase() + item.slice(1)}
-              </Text>
+              <Ionicons name="navigate-outline" size={18} color={colors.primaryLight} />
+              <Text style={styles.secondaryText}>Use fresh Route Leader location</Text>
+            </TouchableOpacity>
+          ) : null}
+          {results.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.result}
+              onPress={() => selectCoordinate(item)}
+            >
+              <Ionicons name="location-outline" size={18} color={colors.link} />
+              <View style={styles.flex}>
+                <Text style={styles.resultTitle}>{item.title}</Text>
+                {item.subtitle ? <Text style={styles.sub}>{item.subtitle}</Text> : null}
+              </View>
             </TouchableOpacity>
           ))}
         </View>
-        <View style={styles.searchRow}>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder={`Search ${target}`}
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            returnKeyType="search"
-            onSubmitEditing={() => void runSearch()}
-          />
-          <TouchableOpacity style={styles.searchButton} onPress={() => void runSearch()}>
-            <Ionicons name="search" size={20} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-        {target === 'origin' ? (
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => {
-              setOrigin(null);
-              setPreview(null);
-            }}
-          >
-            <Ionicons name="navigate-outline" size={18} color={colors.primaryLight} />
-            <Text style={styles.secondaryText}>Use fresh Route Leader location</Text>
-          </TouchableOpacity>
-        ) : null}
-        {results.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.result}
-            onPress={() => selectCoordinate(item)}
-          >
-            <Ionicons name="location-outline" size={18} color={colors.link} />
-            <View style={styles.flex}>
-              <Text style={styles.resultTitle}>{item.title}</Text>
-              {item.subtitle ? <Text style={styles.sub}>{item.subtitle}</Text> : null}
-            </View>
-          </TouchableOpacity>
-        ))}
-        <Text style={styles.mapHint}>Tap the map to set the selected route point.</Text>
-        <View style={styles.map}>
-          <TripMap
-            locations={[]}
-            stops={[]}
-            routePoints={[]}
-            plannedRoute={mapRoute}
-            userLocation={null}
-            onMarkStop={() => undefined}
-            allowMarkStop={false}
-            onMapPress={(latitude, longitude) => selectCoordinate({ latitude, longitude })}
-            initialCamera={destination ? { ...destination, zoom: 11 } : undefined}
-          />
-        </View>
-        <RoutePoint label="Origin" value={origin?.title || 'Fresh Route Leader location'} />
-        {waypoints.map((point, index) => (
-          <View key={`${point.latitude}:${point.longitude}:${index}`} style={styles.waypoint}>
-            <Text style={styles.resultTitle} numberOfLines={1}>
-              {index + 1}. {point.title}
-            </Text>
-            <View style={styles.waypointActions}>
-              <IconButton
-                name="arrow-up"
-                disabled={index === 0}
-                onPress={() => setWaypoints((items) => move(items, index, index - 1))}
-              />
-              <IconButton
-                name="arrow-down"
-                disabled={index === waypoints.length - 1}
-                onPress={() => setWaypoints((items) => move(items, index, index + 1))}
-              />
-              <IconButton
-                name="trash-outline"
-                onPress={() => {
-                  setWaypoints((items) => items.filter((_, itemIndex) => itemIndex !== index));
-                  setPreview(null);
-                }}
-              />
-            </View>
-          </View>
-        ))}
-        <RoutePoint label="Destination" value={destination?.title || 'Not selected'} />
-        {preview ? (
-          <View style={styles.summary}>
-            <Text style={styles.summaryValue}>{(preview.distanceMeters / 1000).toFixed(1)} km</Text>
-            <Text style={styles.sub}>
-              {Math.round(preview.durationSeconds / 60)} min · {preview.steps.length} maneuvers
-            </Text>
-          </View>
-        ) : null}
-        <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={preview ? confirmRoute : createPreview}
-          disabled={busy}
+        <ScrollView
+          style={styles.bottomSheet}
+          contentContainerStyle={styles.bottomSheetContent}
+          keyboardShouldPersistTaps="handled"
         >
-          {busy ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <Ionicons name={preview ? 'checkmark' : 'git-branch-outline'} size={20} color="#FFF" />
-          )}
-          <Text style={styles.primaryText}>{preview ? 'Confirm route' : 'Preview route'}</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <Text style={styles.mapHint}>Tap the map to drop the selected pin.</Text>
+          <RoutePoint label="Origin" value={origin?.title || 'Fresh Route Leader location'} />
+          {waypoints.map((point, index) => (
+            <View key={`${point.latitude}:${point.longitude}:${index}`} style={styles.waypoint}>
+              <Text style={styles.resultTitle} numberOfLines={1}>
+                {index + 1}. {point.title}
+              </Text>
+              <View style={styles.waypointActions}>
+                <IconButton
+                  name="arrow-up"
+                  disabled={index === 0}
+                  onPress={() => setWaypoints((items) => move(items, index, index - 1))}
+                />
+                <IconButton
+                  name="arrow-down"
+                  disabled={index === waypoints.length - 1}
+                  onPress={() => setWaypoints((items) => move(items, index, index + 1))}
+                />
+                <IconButton
+                  name="trash-outline"
+                  onPress={() => {
+                    setWaypoints((items) => items.filter((_, itemIndex) => itemIndex !== index));
+                    setPreview(null);
+                  }}
+                />
+              </View>
+            </View>
+          ))}
+          <RoutePoint label="Destination" value={destination?.title || 'Not selected'} />
+          {preview ? (
+            <View style={styles.summary}>
+              <Text style={styles.summaryValue}>
+                {(preview.distanceMeters / 1000).toFixed(1)} km
+              </Text>
+              <Text style={styles.sub}>
+                {Math.round(preview.durationSeconds / 60)} min · {preview.steps.length} maneuvers
+              </Text>
+            </View>
+          ) : null}
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={preview ? confirmRoute : createPreview}
+            disabled={busy}
+          >
+            {busy ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Ionicons name={preview ? 'checkmark' : 'navigate'} size={20} color="#FFF" />
+            )}
+            <Text style={styles.primaryText}>{preview ? 'Confirm route' : 'Preview route'}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -320,7 +371,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  content: { padding: 14, gap: 10, paddingBottom: 36 },
+  mapScreen: { flex: 1 },
+  topPanel: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    right: 10,
+    gap: 8,
+  },
+  bottomSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    maxHeight: '42%',
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  bottomSheetContent: { padding: 14, gap: 10, paddingBottom: 28 },
   flex: { flex: 1, minWidth: 0 },
   title: { color: colors.textPrimary, fontSize: 20, fontWeight: '800' },
   sub: { color: colors.textSecondary, fontSize: 12 },
@@ -341,17 +412,17 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     minHeight: 48,
-    backgroundColor: colors.inputBg,
+    backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
+    borderRadius: 24,
+    paddingHorizontal: 16,
     color: colors.textPrimary,
   },
   searchButton: {
     width: 48,
     height: 48,
-    borderRadius: 6,
+    borderRadius: 24,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -362,6 +433,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
   },
   secondaryText: { color: colors.primaryLight, fontWeight: '700' },
   result: {
@@ -376,10 +449,9 @@ const styles = StyleSheet.create({
   },
   resultTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   mapHint: { color: colors.textMuted, fontSize: 12 },
-  map: { minHeight: 320 },
   routePoint: {
     padding: 12,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: colors.border,
@@ -392,7 +464,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 6,
     paddingLeft: 12,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: colors.border,
@@ -413,7 +485,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 6,
+    borderRadius: 24,
   },
   primaryText: { color: '#FFF', fontSize: 15, fontWeight: '800' },
 });

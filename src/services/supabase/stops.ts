@@ -85,15 +85,31 @@ export async function updateStop(
   if (error) throw error;
 }
 
-export async function listStops(tripId: string): Promise<TripStop[]> {
-  const { data, error } = await supabase
+const STOP_LIST_SELECT = '*, profiles!user_id(display_name,avatar_url)';
+
+async function fetchStopRows(tripId: string) {
+  const embedded = await supabase
     .from('trip_stops')
-    .select('*, profiles(display_name,avatar_url)')
+    .select(STOP_LIST_SELECT)
     .eq('trip_id', tripId)
     .order('created_at', { ascending: false });
-  if (error) throw error;
-  return Promise.all(
-    (data || []).map(async (row) => {
+  if (!embedded.error) return embedded.data || [];
+
+  // trip_stops has two FKs to profiles (owner + reviewer). If the embed hint
+  // is unavailable, still return stop rows so Activity is not empty.
+  const fallback = await supabase
+    .from('trip_stops')
+    .select('*')
+    .eq('trip_id', tripId)
+    .order('created_at', { ascending: false });
+  if (fallback.error) throw embedded.error;
+  return fallback.data || [];
+}
+
+export async function listStops(tripId: string): Promise<TripStop[]> {
+  const rows = await fetchStopRows(tripId);
+  const stops = await Promise.all(
+    rows.map(async (row) => {
       const stop = mapStop(row);
       if (!stop.photoPath) return stop;
 
@@ -105,4 +121,5 @@ export async function listStops(tripId: string): Promise<TripStop[]> {
       }
     }),
   );
+  return stops.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }

@@ -5,8 +5,10 @@ jest.mock('../../../config/supabase', () => ({
   supabase: {
     functions: { invoke: jest.fn() },
     rpc: jest.fn(),
+    from: jest.fn(),
   },
 }));
+jest.mock('../locations', () => ({ listLocations: jest.fn() }));
 
 const mockInvoke = supabase.functions.invoke as jest.Mock;
 const mockRpc = supabase.rpc as jest.Mock;
@@ -66,7 +68,7 @@ describe('navigation service', () => {
     });
     const route = await calculateRoute(
       'trip-1',
-      null,
+      { latitude: 1, longitude: 2, title: 'Leader' },
       { latitude: 3, longitude: 4, title: 'Finish' },
       [],
     );
@@ -104,5 +106,33 @@ describe('navigation service', () => {
         p_distance_meters: 100,
       }),
     );
+  });
+
+  it('uses public place search when the edge function is unavailable', async () => {
+    mockInvoke.mockResolvedValue({
+      data: { error: 'Place search is not configured' },
+      error: { message: 'Edge Function returned a non-2xx status code' },
+    });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        features: [
+          {
+            geometry: { coordinates: [74.3, 31.5] },
+            properties: { name: 'Fuel stop', city: 'Lahore', country: 'Pakistan', osm_id: 9 },
+          },
+        ],
+      }),
+    }) as typeof fetch;
+
+    await expect(searchPlaces('trip-1', 'fuel')).resolves.toEqual([
+      {
+        id: '9',
+        title: 'Fuel stop',
+        subtitle: 'Lahore, Pakistan',
+        latitude: 31.5,
+        longitude: 74.3,
+      },
+    ]);
   });
 });

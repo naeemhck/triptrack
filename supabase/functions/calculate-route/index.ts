@@ -72,8 +72,7 @@ Deno.serve(async (request) => {
     origin = { latitude: leaderLocation.latitude, longitude: leaderLocation.longitude, name: 'Route Leader location' };
   }
 
-  const routingBase = Deno.env.get('ROUTING_BASE_URL');
-  if (!routingBase) return json({ error: 'Routing service is not configured', retryable: true }, 503);
+  const routingBase = Deno.env.get('ROUTING_BASE_URL') || 'https://router.project-osrm.org';
   const ordered = [origin, ...waypoints, destination];
   const coordinatePath = ordered.map((point) => `${point.longitude},${point.latitude}`).join(';');
   const url = new URL(`/route/v1/driving/${coordinatePath}`, routingBase);

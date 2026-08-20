@@ -18,8 +18,7 @@ Deno.serve(async (request) => {
   if (!membership) return json({ error: 'Trip access denied' }, 403);
   if (membership.role !== 'organizer') return json({ error: 'Organizer required' }, 403);
   if (membership.trips.status === 'completed') return json({ error: 'Completed trip' }, 409);
-  const geocodingBase = Deno.env.get('GEOCODING_BASE_URL');
-  if (!geocodingBase) return json({ error: 'Place search is not configured', retryable: true }, 503);
+  const geocodingBase = Deno.env.get('GEOCODING_BASE_URL') || 'https://photon.komoot.io';
   const url = new URL('/api', geocodingBase);
   url.searchParams.set('q', query);
   url.searchParams.set('limit', '8');
