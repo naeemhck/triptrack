@@ -15,6 +15,7 @@ import { colors } from '../../theme/colors';
 import { getLocationFreshness } from '../../utils/locationFreshness';
 import { TripMapProps, TripMapRef } from './mapTypes';
 import { getMemberColor, getMemberInitials } from '../../utils/memberIdentity';
+import { OPENFREEMAP_STYLE_URL } from '../../services/offlineMapTiles';
 
 const stopIcon = (category?: string): React.ComponentProps<typeof Ionicons>['name'] => {
   if (category === 'lodging') return 'bed-outline';
@@ -24,7 +25,6 @@ const stopIcon = (category?: string): React.ComponentProps<typeof Ionicons>['nam
   return 'flag-outline';
 };
 
-const OPENFREEMAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/bright';
 const GOOGLE_BLUE = '#1A73E8';
 
 export const MapLibreTripMap = forwardRef<TripMapRef, TripMapProps>(

@@ -60,6 +60,7 @@ import { supabase } from '../config/supabase';
 import { reportError } from '../utils/errorReporting';
 import { logger } from '../utils/logger';
 import { processLocationForStopDetection, clearStopDetectorState } from './stopDetector';
+import { deleteTripOfflinePack } from './offlineMapTiles';
 import {
   enqueueLocation,
   processPendingSyncQueue,
@@ -292,6 +293,7 @@ export const cleanupActiveTripState = async (
       }
     }
     await clearStopDetectorState();
+    await deleteTripOfflinePack(tripId);
     if (currentUid) {
       await clearTripQueueForUser(tripId, currentUid);
     }

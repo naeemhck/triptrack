@@ -39,6 +39,9 @@ jest.mock('../offlineSyncQueue', () => ({
   enqueueLocation: jest.fn(),
   processPendingSyncQueue: jest.fn(),
 }));
+jest.mock('../offlineMapTiles', () => ({
+  deleteTripOfflinePack: jest.fn(),
+}));
 jest.mock('../../utils/errorReporting', () => ({ reportError: jest.fn() }));
 jest.mock('../../utils/devLog', () => ({ devLog: jest.fn() }));
 jest.mock('../../utils/logger', () => ({

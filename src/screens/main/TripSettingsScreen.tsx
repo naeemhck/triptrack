@@ -23,6 +23,11 @@ import {
   updateTripNotificationPreferences,
 } from '../../services/supabase/notificationPreferences';
 import { updateTripAlertThresholds } from '../../services/supabase/trips';
+import {
+  deleteTripOfflinePack,
+  getTripOfflinePackStatus,
+  TripOfflinePackInfo,
+} from '../../services/offlineMapTiles';
 
 interface Props {
   route: any;
@@ -86,6 +91,23 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
   const [warningMeters, setWarningMeters] = useState(trip?.warningDistanceMeters || 200);
   const [criticalMeters, setCriticalMeters] = useState(trip?.criticalDistanceMeters || 500);
   const [savingThresholds, setSavingThresholds] = useState(false);
+  const [offlinePack, setOfflinePack] = useState<TripOfflinePackInfo | null>(null);
+
+  const loadOfflinePack = async () => {
+    if (!tripId) return;
+    setOfflinePack(await getTripOfflinePackStatus(tripId));
+  };
+
+  useEffect(() => {
+    void loadOfflinePack();
+  }, [tripId]);
+
+  // While the pack is still downloading, poll so the percentage advances.
+  useEffect(() => {
+    if (!offlinePack || offlinePack.percentage >= 100) return;
+    const timer = setInterval(() => void loadOfflinePack(), 3000);
+    return () => clearInterval(timer);
+  }, [offlinePack?.percentage]);
   const settings = baseSettings.map((item) => ({
     ...item,
     description:
@@ -215,6 +237,52 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
             ))}
           </View>
         )}
+        <View style={styles.thresholds}>
+          <Text style={styles.sectionTitle}>Offline maps</Text>
+          <Text style={styles.sectionDescription}>
+            Map tiles for this trip's planned route are downloaded on this device so the map works
+            without signal. The download starts automatically for active trips and is removed when
+            the trip ends.
+          </Text>
+          <View style={styles.list}>
+            <View style={styles.row}>
+              <View style={[styles.iconBox, { backgroundColor: `${colors.primary}1F` }]}>
+                <Ionicons name="map-outline" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.copy}>
+                <Text style={styles.rowTitle}>
+                  {offlinePack
+                    ? offlinePack.percentage >= 100
+                      ? 'Route tiles saved offline'
+                      : `Downloading route tiles · ${Math.round(offlinePack.percentage)}%`
+                    : 'No offline tiles for this trip yet'}
+                </Text>
+                {offlinePack ? (
+                  <Text style={styles.rowDescription}>
+                    {offlinePack.completedTileCount} of {offlinePack.requiredResourceCount}{' '}
+                    resources on this device.
+                  </Text>
+                ) : (
+                  <Text style={styles.rowDescription}>
+                    Tiles download once the trip is active and a planned route exists.
+                  </Text>
+                )}
+              </View>
+              {offlinePack ? (
+                <TouchableOpacity
+                  style={styles.deleteTiles}
+                  accessibilityLabel="Delete offline map tiles"
+                  onPress={async () => {
+                    await deleteTripOfflinePack(tripId);
+                    setOfflinePack(null);
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={18} color={colors.critical} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        </View>
         {trip.createdBy === user?.uid && trip.status !== 'completed' ? (
           <View style={styles.thresholds}>
             <Text style={styles.sectionTitle}>Separation thresholds</Text>
@@ -352,6 +420,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   saveThresholdsText: { color: '#FFF', fontWeight: '800' },
+  deleteTiles: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   retry: {
     minHeight: 44,
     paddingHorizontal: 18,

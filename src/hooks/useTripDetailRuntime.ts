@@ -20,6 +20,7 @@ import {
 } from '../services/offlineSyncQueue';
 import { listMemberRouteStatuses, listRoutePoints } from '../services/supabase/routes';
 import { getCurrentPlannedRoute, listNavigationStatuses } from '../services/supabase/navigation';
+import { ensureTripOfflinePack } from '../services/offlineMapTiles';
 import { subscribeToTripTable } from '../services/supabase/realtime';
 import { MemberLocation, TripStop } from '../types/location';
 import { MemberRouteStatus, TripRoutePoint } from '../types/route';
@@ -315,6 +316,15 @@ export const useTripDetailRuntime = ({
       unsubscribe.forEach((stop) => stop());
     };
   }, [tripId]);
+
+  // Offline map tiles: once an active trip has a planned route, download the
+  // route's tiles in the background (no-op when the pack already exists).
+  useEffect(() => {
+    if (!tripId || activeTrip?.status !== 'active') return;
+    const points = plannedRoute?.points;
+    if (!points || points.length < 2) return;
+    void ensureTripOfflinePack(tripId, points);
+  }, [activeTrip?.status, plannedRoute?.id, plannedRoute?.points.length, tripId]);
 
   // Handle Foreground Location Watcher (used when sharing is ON & permState is foreground-only or backup)
   useEffect(() => {
