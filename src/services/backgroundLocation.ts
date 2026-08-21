@@ -48,8 +48,9 @@
  *   - showsBackgroundLocationIndicator: true shows blue status bar pill.
  *
  * BATTERY & ACCURACY CONFIGURATION:
- * Uses Location.Accuracy.Balanced with timeInterval=30000ms (30s) and distanceInterval=50m
- * to balance battery conservation with group tracking accuracy.
+ * Sampling parameters come from the per-device tracking profile in
+ * trackingPreferences.ts (Balanced default: 30s / 50m). Users can switch
+ * between Battery saver, Balanced, and High accuracy in Trip Settings.
  * pausesUpdatesAutomatically: false ensures continuous tracking during road trips.
  */
 
@@ -61,6 +62,7 @@ import { reportError } from '../utils/errorReporting';
 import { logger } from '../utils/logger';
 import { processLocationForStopDetection, clearStopDetectorState } from './stopDetector';
 import { deleteTripOfflinePack } from './offlineMapTiles';
+import { getTrackingTaskParams } from './trackingPreferences';
 import {
   enqueueLocation,
   processPendingSyncQueue,
@@ -240,23 +242,50 @@ export const startBackgroundLocationTracking = async (
   if (permState === 'granted-always') {
     const isRunning = await isBackgroundTrackingRunning();
     if (!isRunning) {
-      await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 30000, // 30 seconds
-        distanceInterval: 50, // 50 meters
-        showsBackgroundLocationIndicator: true, // iOS blue status bar pill
-        pausesUpdatesAutomatically: false,
-        foregroundService: {
-          notificationTitle: `TripTrack: Sharing Location`,
-          notificationBody: `Your live location is being shared with your trip group for "${tripName}"`,
-          notificationColor: '#14B8A6',
-        },
-      });
+      await startLocationUpdates(tripName);
       logger.info('background_location.started');
     }
   }
 
   return permState;
+};
+
+const startLocationUpdates = async (tripName: string): Promise<void> => {
+  const { timeInterval, distanceInterval, accuracy } = await getTrackingTaskParams();
+  await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
+    accuracy,
+    timeInterval,
+    distanceInterval,
+    showsBackgroundLocationIndicator: true, // iOS blue status bar pill
+    pausesUpdatesAutomatically: false,
+    foregroundService: {
+      notificationTitle: `TripTrack: Sharing Location`,
+      notificationBody: `Your live location is being shared with your trip group for "${tripName}"`,
+      notificationColor: '#14B8A6',
+    },
+  });
+};
+
+/**
+ * Apply a changed tracking profile immediately by restarting the running
+ * background task. No-op when tracking is not active.
+ */
+export const restartBackgroundLocationTrackingIfRunning = async (): Promise<boolean> => {
+  try {
+    const raw = await AsyncStorage.getItem(ASYNC_BG_TRIP_KEY);
+    if (!raw) return false;
+    const running = await isBackgroundTrackingRunning();
+    if (!running) return false;
+
+    const activeInfo: ActiveBgTripInfo = JSON.parse(raw);
+    await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+    await startLocationUpdates(activeInfo.tripName || 'Active Trip');
+    logger.info('background_location.restarted');
+    return true;
+  } catch (err) {
+    reportError(err, { operation: 'backgroundLocation.restart' });
+    return false;
+  }
 };
 
 /**

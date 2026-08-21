@@ -6,6 +6,7 @@ import {
   BACKGROUND_LOCATION_TASK,
   checkLocationPermissionsStatus,
   cleanupActiveTripState,
+  restartBackgroundLocationTrackingIfRunning,
   startBackgroundLocationTracking,
   stopBackgroundLocationTracking,
 } from '../backgroundLocation';
@@ -93,6 +94,25 @@ describe('background location controls', () => {
     location.hasStartedLocationUpdatesAsync.mockResolvedValue(true);
     await startBackgroundLocationTracking('trip-1', { uid: 'user-1' });
     expect(location.startLocationUpdatesAsync).not.toHaveBeenCalled();
+  });
+
+  it('restarts a running task with the saved profile when one is active', async () => {
+    await startBackgroundLocationTracking('trip-1', { uid: 'user-1' }, 'Coastal Run');
+    location.hasStartedLocationUpdatesAsync.mockResolvedValue(true);
+
+    await expect(restartBackgroundLocationTrackingIfRunning()).resolves.toBe(true);
+
+    expect(location.stopLocationUpdatesAsync).toHaveBeenCalledWith(BACKGROUND_LOCATION_TASK);
+    expect(location.startLocationUpdatesAsync).toHaveBeenCalledWith(
+      BACKGROUND_LOCATION_TASK,
+      expect.objectContaining({ timeInterval: 30_000, distanceInterval: 50 }),
+    );
+  });
+
+  it('does not restart when no trip is active', async () => {
+    location.hasStartedLocationUpdatesAsync.mockResolvedValue(true);
+    await expect(restartBackgroundLocationTrackingIfRunning()).resolves.toBe(false);
+    expect(location.stopLocationUpdatesAsync).not.toHaveBeenCalled();
   });
 
   it('keeps foreground-only context without starting the background task', async () => {

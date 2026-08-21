@@ -28,6 +28,13 @@ import {
   getTripOfflinePackStatus,
   TripOfflinePackInfo,
 } from '../../services/offlineMapTiles';
+import {
+  getTrackingProfile,
+  setTrackingProfile,
+  TRACKING_PROFILES,
+  TrackingProfile,
+} from '../../services/trackingPreferences';
+import { restartBackgroundLocationTrackingIfRunning } from '../../services/backgroundLocation';
 
 interface Props {
   route: any;
@@ -92,6 +99,8 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
   const [criticalMeters, setCriticalMeters] = useState(trip?.criticalDistanceMeters || 500);
   const [savingThresholds, setSavingThresholds] = useState(false);
   const [offlinePack, setOfflinePack] = useState<TripOfflinePackInfo | null>(null);
+  const [trackingProfile, setTrackingProfileState] = useState<TrackingProfile>('balanced');
+  const [switchingProfile, setSwitchingProfile] = useState(false);
 
   const loadOfflinePack = async () => {
     if (!tripId) return;
@@ -108,6 +117,26 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
     const timer = setInterval(() => void loadOfflinePack(), 3000);
     return () => clearInterval(timer);
   }, [offlinePack?.percentage]);
+
+  useEffect(() => {
+    void getTrackingProfile().then(setTrackingProfileState);
+  }, []);
+
+  const changeTrackingProfile = async (next: TrackingProfile) => {
+    if (switchingProfile || next === trackingProfile) return;
+    const previous = trackingProfile;
+    setTrackingProfileState(next);
+    setSwitchingProfile(true);
+    try {
+      await setTrackingProfile(next);
+      await restartBackgroundLocationTrackingIfRunning();
+    } catch {
+      setTrackingProfileState(previous);
+      Alert.alert('Setting not saved', 'Check your connection and try again.');
+    } finally {
+      setSwitchingProfile(false);
+    }
+  };
   const settings = baseSettings.map((item) => ({
     ...item,
     description:
@@ -283,6 +312,40 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
             </View>
           </View>
         </View>
+        <View style={styles.thresholds}>
+          <Text style={styles.sectionTitle}>Location sharing (this device)</Text>
+          <Text style={styles.sectionDescription}>
+            Choose how often this device samples your location while sharing on a trip. Battery
+            saver may make you look delayed to your group sooner.
+          </Text>
+          <View style={styles.profilePicker}>
+            {(Object.keys(TRACKING_PROFILES) as TrackingProfile[]).map((key) => {
+              const profile = TRACKING_PROFILES[key];
+              const selected = trackingProfile === key;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.profileOption, selected && styles.profileSelected]}
+                  disabled={switchingProfile}
+                  onPress={() => void changeTrackingProfile(key)}
+                  accessibilityLabel={profile.label}
+                >
+                  <View style={styles.profileHeader}>
+                    {selected ? (
+                      <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                    ) : (
+                      <Ionicons name="ellipse-outline" size={16} color={colors.inactive} />
+                    )}
+                    <Text style={[styles.profileLabel, selected && styles.profileLabelSelected]}>
+                      {profile.label}
+                    </Text>
+                  </View>
+                  <Text style={styles.profileDescription}>{profile.description}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
         {trip.createdBy === user?.uid && trip.status !== 'completed' ? (
           <View style={styles.thresholds}>
             <Text style={styles.sectionTitle}>Separation thresholds</Text>
@@ -429,6 +492,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  profilePicker: { gap: 8 },
+  profileOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 13,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  profileSelected: { borderColor: colors.primary },
+  profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  profileLabel: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+  profileLabelSelected: { color: colors.primary },
+  profileDescription: { fontSize: 12, lineHeight: 17, color: colors.textSecondary, flex: 1 },
   retry: {
     minHeight: 44,
     paddingHorizontal: 18,
