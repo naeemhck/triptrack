@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { TripMap } from '../../components/map/TripMap';
 import { useTrips } from '../../context/TripContext';
 import {
@@ -103,6 +105,39 @@ export const RoutePlannerScreen = ({ route, navigation }: any) => {
     setResults([]);
     setQuery('');
     setPreview(null);
+  };
+
+  const pinCurrentLocationAsOrigin = async () => {
+    try {
+      const foreground = await Location.getForegroundPermissionsAsync();
+      const permission =
+        foreground.status === 'granted'
+          ? foreground
+          : await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert(
+          'Location access needed',
+          'TripTrack needs location access to use your position as the route start.',
+          [
+            { text: 'Open settings', onPress: () => Linking.openSettings() },
+            { text: 'Cancel', style: 'cancel' },
+          ],
+        );
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setOrigin({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        title: 'Route Leader position (now)',
+      });
+      setPreview(null);
+    } catch (error) {
+      reportError(error, { operation: 'routePlanner.useCurrentLocation' });
+      Alert.alert('Location unavailable', 'Your position could not be read. Try again.');
+    }
   };
 
   const runSearch = async () => {
@@ -242,16 +277,25 @@ export const RoutePlannerScreen = ({ route, navigation }: any) => {
             </TouchableOpacity>
           </View>
           {target === 'origin' ? (
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => {
-                setOrigin(null);
-                setPreview(null);
-              }}
-            >
-              <Ionicons name="navigate-outline" size={18} color={colors.primaryLight} />
-              <Text style={styles.secondaryText}>Use fresh Route Leader location</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => void pinCurrentLocationAsOrigin()}
+              >
+                <Ionicons name="locate-outline" size={18} color={colors.primaryLight} />
+                <Text style={styles.secondaryText}>Pin my current location</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => {
+                  setOrigin(null);
+                  setPreview(null);
+                }}
+              >
+                <Ionicons name="navigate-outline" size={18} color={colors.primaryLight} />
+                <Text style={styles.secondaryText}>Use fresh Route Leader location</Text>
+              </TouchableOpacity>
+            </>
           ) : null}
           {results.map((item) => (
             <TouchableOpacity

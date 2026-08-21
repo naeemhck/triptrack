@@ -365,9 +365,12 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
               maximumValue={400}
               step={50}
               value={warningMeters}
-              onValueChange={(value) => {
-                setWarningMeters(value);
-                setCriticalMeters((current) => Math.max(current, value + 100));
+              onSlidingComplete={(value) => {
+                // Commit on release: updating state on every drag tick makes the
+                // controlled value prop snap the thumb back mid-drag on Android.
+                const next = Math.round(value / 50) * 50;
+                setWarningMeters(next);
+                setCriticalMeters((current) => Math.max(current, next + 100));
               }}
               minimumTrackTintColor={colors.warning}
               maximumTrackTintColor={colors.border}
@@ -378,7 +381,11 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
               maximumValue={2000}
               step={50}
               value={criticalMeters}
-              onValueChange={(value) => setCriticalMeters(Math.max(value, warningMeters + 100))}
+              onSlidingComplete={(value) =>
+                setCriticalMeters(
+                  Math.min(2000, Math.max(Math.round(value / 50) * 50, warningMeters + 100)),
+                )
+              }
               minimumTrackTintColor={colors.critical}
               maximumTrackTintColor={colors.border}
             />

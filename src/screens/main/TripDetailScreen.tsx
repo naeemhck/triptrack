@@ -373,6 +373,26 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
   const handleStartTrip = async () => {
     if (!tripId || !user?.uid) return;
     try {
+      // Route planning uses the Route Leader position as the start location,
+      // so location access must exist before the trip can start.
+      let permissionState = await checkLocationPermissionsStatus();
+      if (permissionState === 'denied') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Location access needed',
+            'TripTrack needs location access before starting the trip. The planned route starts at the Route Leader position, and members see each other on the map.',
+            [
+              { text: 'Open settings', onPress: () => Linking.openSettings() },
+              { text: 'Cancel', style: 'cancel' },
+            ],
+          );
+          return;
+        }
+        permissionState = await checkLocationPermissionsStatus();
+      }
+      setPermState(permissionState);
+
       if (!activeTrip?.routeLeaderUserId) {
         await setRouteLeader(tripId, user.uid);
       }
