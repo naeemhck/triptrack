@@ -31,6 +31,11 @@ import {
 } from '../../services/supabase/trips';
 import { reviewAutomaticStop } from '../../services/supabase/stops';
 import { subscribeToTripTable } from '../../services/supabase/realtime';
+import {
+  listTripNudges,
+  MemberNudgeEvent,
+  nudgeMember,
+} from '../../services/supabase/memberNudges';
 import { rememberActiveTrip } from '../../services/tripWorkspacePersistence';
 import { countDurablePendingSync, mergeStopsWithPendingQueue } from '../../utils/tripStopDisplay';
 
@@ -57,6 +62,8 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
   const promptedReroute = useRef<string | null>(null);
   const [alertEvents, setAlertEvents] = useState<TripAlertEvent[]>([]);
   const [statistics, setStatistics] = useState<TripStatistics>();
+  const [recentNudges, setRecentNudges] = useState<MemberNudgeEvent[]>([]);
+  const [nudgingMemberId, setNudgingMemberId] = useState<string | null>(null);
   const isOrganizer = activeTrip?.createdBy === user?.uid;
 
   useEffect(() => {
@@ -162,12 +169,25 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
       tripId,
       () => void refreshWorkspaceData(),
     );
+    const refreshNudges = () =>
+      listTripNudges(tripId)
+        .then(setRecentNudges)
+        .catch((error) =>
+          reportError(error, { operation: 'tripWorkspace.refreshNudges', severity: 'warning' }),
+        );
+    void refreshNudges();
+    const unsubNudges = subscribeToTripTable(
+      'member_nudge_events',
+      tripId,
+      () => void refreshNudges(),
+    );
     return () => {
       active = false;
       unsubLag();
       unsubMember();
       unsubStale();
       unsubStops();
+      unsubNudges();
     };
   }, [tripId]);
 
@@ -433,6 +453,22 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
     );
   };
 
+  const handleNudgeMember = async (targetMember: TripMember) => {
+    if (!tripId || !user?.uid || nudgingMemberId) return;
+    setNudgingMemberId(targetMember.uid);
+    try {
+      await nudgeMember(tripId, targetMember.uid);
+      setRecentNudges(await listTripNudges(tripId));
+    } catch (error: any) {
+      Alert.alert(
+        'Check-in not sent',
+        error?.message || 'The nudge could not be sent. Try again in a few minutes.',
+      );
+    } finally {
+      setNudgingMemberId(null);
+    }
+  };
+
   const handleRemoveMember = (targetMember: TripMember) => {
     if (!tripId || !user?.uid) return;
     Alert.alert(
@@ -549,6 +585,9 @@ export const TripDetailScreen: React.FC<TripDetailScreenProps> = ({ route, navig
       onMakeLeader={handleMakeRouteLeader}
       onMarkStop={handleMarkStop}
       onRemoveMember={handleRemoveMember}
+      onNudgeMember={handleNudgeMember}
+      recentNudges={recentNudges}
+      nudgingMemberId={nudgingMemberId}
       onStartTrip={handleStartTrip}
       onToggleSharing={handleToggleSharing}
       onTimedSharing={handleTimedSharing}

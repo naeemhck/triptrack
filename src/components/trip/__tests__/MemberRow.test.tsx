@@ -76,4 +76,24 @@ describe('MemberRow', () => {
     expect(onMakeLeader).toHaveBeenCalledTimes(1);
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
+
+  it('sends a nudge when the action is available', () => {
+    const onNudge = jest.fn();
+    const view = render(<MemberRow {...baseProps} canManage onNudge={onNudge} />);
+    fireEvent.press(view.getByText('Ask location'));
+    expect(onNudge).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the rate-limited state without firing the handler', () => {
+    const onNudge = jest.fn();
+    const view = render(<MemberRow {...baseProps} canManage onNudge={onNudge} nudgeDisabled />);
+    expect(view.getByText('Nudged recently')).toBeTruthy();
+    fireEvent.press(view.getByText('Nudged recently'));
+    expect(onNudge).not.toHaveBeenCalled();
+  });
+
+  it('hides the nudge action for the signed-in member', () => {
+    const view = render(<MemberRow {...baseProps} canManage isMe onNudge={jest.fn()} />);
+    expect(view.queryByText('Ask location')).toBeNull();
+  });
 });

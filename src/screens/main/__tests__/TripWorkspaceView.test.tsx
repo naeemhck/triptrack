@@ -24,6 +24,9 @@ jest.mock('react-native-qrcode-svg', () => {
   return MockQRCode;
 });
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn() }));
+jest.mock('../../../services/supabase/memberNudges', () => ({
+  isNudgeRateLimited: jest.fn(() => false),
+}));
 
 const props: React.ComponentProps<typeof TripWorkspaceView> = {
   trip: {
@@ -66,6 +69,8 @@ const props: React.ComponentProps<typeof TripWorkspaceView> = {
   onSelectStop: jest.fn(),
   onMakeLeader: jest.fn(),
   onRemoveMember: jest.fn(),
+  onNudgeMember: jest.fn(),
+  recentNudges: [],
   onLeaveTrip: jest.fn(),
   onStartTrip: jest.fn(),
   onEndTrip: jest.fn(),

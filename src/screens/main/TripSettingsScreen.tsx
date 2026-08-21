@@ -84,6 +84,13 @@ const baseSettings: {
     icon: 'person-remove-outline',
     color: colors.secondaryLight,
   },
+  {
+    key: 'nudgeEnabled',
+    title: 'Location check-ins',
+    description: 'Notify me when a member asks where I am.',
+    icon: 'location-outline',
+    color: colors.primaryLight,
+  },
 ];
 
 export const TripSettingsScreen = ({ route, navigation }: Props) => {

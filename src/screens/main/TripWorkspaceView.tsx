@@ -22,6 +22,7 @@ import { TripRoutePoint } from '../../types/route';
 import { Trip, TripAlertEvent, TripStatistics } from '../../types/trip';
 import { MemberNavigationStatus, PlannedRoute } from '../../types/navigation';
 import { TripMemberRowData } from './TripDetailView';
+import { isNudgeRateLimited, MemberNudgeEvent } from '../../services/supabase/memberNudges';
 import { TripSettingsScreen } from './TripSettingsScreen';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
@@ -65,6 +66,9 @@ interface Props {
   onSelectStop: (stop: TripStop) => void;
   onMakeLeader: (member: TripMemberRowData['member']) => void;
   onRemoveMember: (member: TripMemberRowData['member']) => void;
+  onNudgeMember: (member: TripMemberRowData['member']) => void;
+  recentNudges: MemberNudgeEvent[];
+  nudgingMemberId?: string | null;
   onLeaveTrip: () => void;
   onStartTrip: () => void;
   onEndTrip: () => void;
@@ -357,6 +361,13 @@ export const TripWorkspaceView = (props: Props) => {
               }
               onMakeLeader={() => props.onMakeLeader(member)}
               onRemove={() => props.onRemoveMember(member)}
+              onNudge={
+                props.trip.status === 'active' && member.uid !== props.userId
+                  ? () => props.onNudgeMember(member)
+                  : undefined
+              }
+              nudgeDisabled={isNudgeRateLimited(props.recentNudges, props.userId ?? '', member.uid)}
+              nudging={props.nudgingMemberId === member.uid}
             />
           ))}
           <TouchableOpacity style={styles.leave} onPress={props.onLeaveTrip}>
@@ -446,9 +457,11 @@ export const TripWorkspaceView = (props: Props) => {
                       ? 'alert-circle'
                       : event.type === 'stale'
                         ? 'time-outline'
-                        : event.type.startsWith('member_')
-                          ? 'person-remove-outline'
-                          : 'warning-outline'
+                        : event.type === 'member_nudge'
+                          ? 'location-outline'
+                          : event.type.startsWith('member_')
+                            ? 'person-remove-outline'
+                            : 'warning-outline'
                   }
                   size={20}
                   color={event.type === 'critical' ? colors.critical : colors.warning}

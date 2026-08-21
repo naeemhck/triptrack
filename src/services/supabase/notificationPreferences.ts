@@ -10,6 +10,7 @@ const mapPreferences = (row: any): TripNotificationPreferences => ({
   stopEnabled: row.stop_enabled,
   staleEnabled: row.stale_enabled,
   memberLeftEnabled: row.member_left_enabled ?? true,
+  nudgeEnabled: row.nudge_enabled ?? true,
 });
 
 const requireUserId = async (): Promise<string> => {
@@ -50,6 +51,7 @@ export const updateTripNotificationPreferences = async (
         stop_enabled: next.stopEnabled,
         stale_enabled: next.staleEnabled,
         member_left_enabled: next.memberLeftEnabled,
+        nudge_enabled: next.nudgeEnabled,
       },
       { onConflict: 'trip_id,user_id' },
     )

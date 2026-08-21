@@ -10,6 +10,7 @@ export type RealtimeTripTable =
   | 'lag_alert_events'
   | 'stale_alert_episodes'
   | 'trip_member_events'
+  | 'member_nudge_events'
   | 'trip_planned_routes'
   | 'trip_route_waypoints'
   | 'trip_planned_route_points'

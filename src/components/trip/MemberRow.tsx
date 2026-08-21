@@ -19,6 +19,9 @@ interface Props {
   canManage: boolean;
   onMakeLeader: () => void;
   onRemove: () => void;
+  onNudge?: () => void;
+  nudgeDisabled?: boolean;
+  nudging?: boolean;
   warningDistanceMeters?: number;
   criticalDistanceMeters?: number;
   stoppedSince?: number;
@@ -36,6 +39,9 @@ export const MemberRow = ({
   canManage,
   onMakeLeader,
   onRemove,
+  onNudge,
+  nudgeDisabled,
+  nudging,
   warningDistanceMeters = 200,
   criticalDistanceMeters = 500,
   stoppedSince,
@@ -135,6 +141,23 @@ export const MemberRow = ({
         ) : null}
         {canManage ? (
           <View style={styles.actions}>
+            {!isMe && onNudge ? (
+              <TouchableOpacity
+                style={styles.manageButton}
+                onPress={onNudge}
+                disabled={nudgeDisabled || nudging}
+                accessibilityLabel="Send location check-in"
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={16}
+                  color={nudgeDisabled ? colors.inactive : colors.warning}
+                />
+                <Text style={[styles.manageText, nudgeDisabled && { color: colors.inactive }]}>
+                  {nudging ? 'Sending…' : nudgeDisabled ? 'Nudged recently' : 'Ask location'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
             {!isRouteLeader ? (
               <TouchableOpacity style={styles.manageButton} onPress={onMakeLeader}>
                 <Ionicons name="navigate-outline" size={16} color={colors.link} />

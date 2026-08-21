@@ -44,7 +44,7 @@ export interface TripStatistics {
 }
 
 export type TripAlertEventType =
-  'warning' | 'critical' | 'stale' | 'member_left' | 'member_removed';
+  'warning' | 'critical' | 'stale' | 'member_left' | 'member_removed' | 'member_nudge';
 
 export interface TripAlertEvent {
   id: string;
