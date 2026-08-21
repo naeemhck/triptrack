@@ -9,6 +9,8 @@ import {
   tripOfflinePackName,
 } from '../offlineMapTiles';
 
+import { OfflineManager } from '@maplibre/maplibre-react-native';
+
 jest.mock('@maplibre/maplibre-react-native', () => ({
   OfflineManager: {
     createPack: jest.fn(),
@@ -17,8 +19,6 @@ jest.mock('@maplibre/maplibre-react-native', () => ({
   },
 }));
 jest.mock('../../utils/errorReporting', () => ({ reportError: jest.fn() }));
-
-import { OfflineManager } from '@maplibre/maplibre-react-native';
 
 const manager = OfflineManager as jest.Mocked<typeof OfflineManager>;
 

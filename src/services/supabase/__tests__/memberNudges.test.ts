@@ -5,6 +5,8 @@ import {
   nudgeMember,
 } from '../memberNudges';
 
+import { supabase } from '../../../config/supabase';
+
 jest.mock('../../../config/supabase', () => ({
   supabase: {
     rpc: jest.fn(),
@@ -16,8 +18,6 @@ jest.mock('../../../config/supabase', () => ({
     })),
   },
 }));
-
-import { supabase } from '../../../config/supabase';
 
 const client = supabase as jest.Mocked<typeof supabase>;
 
