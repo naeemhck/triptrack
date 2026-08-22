@@ -516,7 +516,7 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
                 }}
               >
                 {savingThresholds ? (
-                  <ActivityIndicator color="#FFF" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <Text style={styles.saveThresholdsText}>Save thresholds</Text>
                 )}
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
   },
-  saveThresholdsText: { color: '#FFF', fontWeight: '800' },
+  saveThresholdsText: { color: colors.onPrimary, fontWeight: '800' },
   deleteTiles: {
     width: 44,
     height: 44,

@@ -224,7 +224,7 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
               onPress={() => setScannerOpen(false)}
               accessibilityLabel="Close QR scanner"
             >
-              <Ionicons name="close" size={26} color="#FFF" />
+              <Ionicons name="close" size={26} color={colors.onPrimary} />
             </TouchableOpacity>
             <Text style={styles.scannerHint}>Place the TripTrack QR code inside the frame</Text>
           </View>
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   scannerHint: {
     position: 'absolute',
     bottom: 90,
-    color: '#FFF',
+    color: colors.onPrimary,
     backgroundColor: 'rgba(0,0,0,0.65)',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm + 2,

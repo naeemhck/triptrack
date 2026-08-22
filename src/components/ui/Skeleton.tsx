@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, StyleProp, ViewStyle } from 'react-native';
+import { Animated, DimensionValue, Dimensions, StyleProp, ViewStyle } from 'react-native';
 import { colors } from '../../theme/colors';
 import { radius, spacing } from '../../theme';
 
@@ -13,7 +13,7 @@ export const SkeletonBar = ({
   rounded = radius.pill,
   style,
 }: {
-  width?: number | `${number}%` | '100%';
+  width?: DimensionValue;
   height?: number;
   rounded?: number;
   style?: StyleProp<ViewStyle>;
@@ -37,7 +37,7 @@ export const SkeletonBar = ({
     <Animated.View
       style={[
         {
-          width: width as ViewStyle['width'],
+          width,
           height,
           borderRadius: rounded,
           backgroundColor: colors.surfaceLight,

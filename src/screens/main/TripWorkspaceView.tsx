@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   ScrollView,
   Share,
   StyleSheet,
@@ -26,7 +25,8 @@ import { MemberNavigationStatus, PlannedRoute } from '../../types/navigation';
 import { TripMemberRowData } from './TripDetailView';
 import { isNudgeRateLimited, MemberNudgeEvent } from '../../services/supabase/memberNudges';
 import { TripSettingsScreen } from './TripSettingsScreen';
-import { Chip, ChipTone } from '../../components/ui/Chips';
+import { Chip, statusTone } from '../../components/ui/Chips';
+import { AnimatedTabBar } from '../../components/ui/AnimatedTabBar';
 import { StatTile } from '../../components/ui/Card';
 import { FadeInView } from '../../components/ui/FadeInView';
 import QRCode from 'react-native-qrcode-svg';
@@ -95,80 +95,6 @@ const durationLabel = (seconds = 0) => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
-};
-
-const tripStatusTone = (status: string): ChipTone =>
-  status === 'active' ? 'primary' : status === 'planned' ? 'warning' : 'neutral';
-
-/**
- * Floating pill tab bar with a spring-sliding active indicator.
- */
-const AnimatedTabBar = ({
-  tabs,
-  active,
-  onSelect,
-}: {
-  tabs: { key: WorkspaceTab; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[];
-  active: WorkspaceTab;
-  onSelect: (tab: WorkspaceTab) => void;
-}) => {
-  const indicatorX = useRef(
-    new Animated.Value(tabs.findIndex((item) => item.key === active)),
-  ).current;
-  const [tabWidth, setTabWidth] = useState(0);
-
-  useEffect(() => {
-    const index = Math.max(
-      0,
-      tabs.findIndex((item) => item.key === active),
-    );
-    Animated.spring(indicatorX, {
-      toValue: index,
-      speed: 40,
-      bounciness: 7,
-      useNativeDriver: true,
-    }).start();
-  }, [active, indicatorX, tabs]);
-
-  return (
-    <View style={styles.tabBar} onLayout={(event) => setTabWidth(event.nativeEvent.layout.width)}>
-      {tabWidth > 0 ? (
-        <Animated.View
-          style={[
-            styles.tabIndicator,
-            {
-              width: (tabWidth - 8) / tabs.length,
-              transform: [
-                {
-                  translateX: indicatorX.interpolate({
-                    inputRange: [0, tabs.length - 1],
-                    outputRange: [4, 4 + ((tabWidth - 8) / tabs.length) * (tabs.length - 1)],
-                  }),
-                },
-              ],
-            },
-          ]}
-        />
-      ) : null}
-      {tabs.map((item) => (
-        <TouchableOpacity
-          key={item.key}
-          style={styles.tab}
-          onPress={() => onSelect(item.key)}
-          accessibilityState={{ selected: active === item.key }}
-        >
-          <Ionicons
-            name={active === item.key ? (item.icon.replace('-outline', '') as any) : item.icon}
-            size={19}
-            color={active === item.key ? colors.primaryLight : colors.textMuted}
-          />
-          <Text style={[styles.tabText, active === item.key && styles.tabTextActive]}>
-            {item.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
 };
 
 export const TripWorkspaceView = (props: Props) => {
@@ -247,7 +173,7 @@ export const TripWorkspaceView = (props: Props) => {
                 </View>
                 {props.isOrganizer ? (
                   <TouchableOpacity style={styles.startTripButton} onPress={props.onStartTrip}>
-                    <Ionicons name="play" size={18} color="#FFF" />
+                    <Ionicons name="play" size={18} color={colors.onPrimary} />
                     <Text style={styles.primaryText}>Start Trip 🚀</Text>
                   </TouchableOpacity>
                 ) : null}
@@ -328,7 +254,7 @@ export const TripWorkspaceView = (props: Props) => {
                 style={styles.routePlannerButton}
                 onPress={() => props.navigation.navigate('RoutePlanner', { tripId: props.tripId })}
               >
-                <Ionicons name="git-branch-outline" size={18} color="#FFF" />
+                <Ionicons name="git-branch-outline" size={18} color={colors.onPrimary} />
                 <Text style={styles.primaryText}>
                   {props.plannedRoute ? 'Edit or reroute' : 'Plan route'}
                 </Text>
@@ -372,7 +298,7 @@ export const TripWorkspaceView = (props: Props) => {
           ) : null}
           {props.trip.status === 'active' ? (
             <TouchableOpacity style={styles.primaryButton} onPress={() => props.onMarkStop()}>
-              <Ionicons name="add" size={20} color="#FFF" />
+              <Ionicons name="add" size={20} color={colors.onPrimary} />
               <Text style={styles.primaryText}>Mark stop</Text>
             </TouchableOpacity>
           ) : null}
@@ -598,7 +524,7 @@ export const TripWorkspaceView = (props: Props) => {
             </Text>
             <Chip
               label={props.trip.status || 'active'}
-              tone={tripStatusTone(props.trip.status || 'active')}
+              tone={statusTone(props.trip.status)}
               icon={props.trip.status === 'active' ? 'radio-outline' : undefined}
             />
           </View>
@@ -734,7 +660,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.primaryAction,
   },
-  primaryText: { color: '#FFF', fontWeight: '800' },
+  primaryText: { color: colors.onPrimary, fontWeight: '800' },
   secondaryButton: {
     minHeight: 44,
     flexDirection: 'row',
@@ -769,18 +695,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
   },
-  stats: { flexDirection: 'row', gap: 6 },
-  stat: {
-    flex: 1,
-    minHeight: 62,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statValue: { color: colors.textPrimary, fontWeight: '800', fontSize: 14 },
+  stats: { flexDirection: 'row', gap: spacing.sm },
   alertRow: {
     minHeight: 58,
     flexDirection: 'row',
@@ -803,30 +718,6 @@ const styles = StyleSheet.create({
   },
   leave: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   leaveText: { color: colors.critical, fontWeight: '700' },
-  tabBar: {
-    height: 62,
-    flexDirection: 'row',
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm + 2,
-    marginTop: spacing.xs,
-    borderRadius: radius.xl,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  tabIndicator: {
-    position: 'absolute',
-    top: 4,
-    bottom: 4,
-    borderRadius: radius.lg,
-    backgroundColor: colors.tintPrimary,
-    borderWidth: 1,
-    borderColor: colors.borderActive,
-  },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
-  tabText: { color: colors.textMuted, fontSize: 10, fontWeight: '600' },
-  tabTextActive: { color: colors.primaryLight, fontWeight: '800' },
   qr: {
     alignItems: 'center',
     gap: spacing.xs + 2,

@@ -6,7 +6,7 @@ import { letterSpacing, radius, spacing } from '../../theme';
 import { Trip } from '../../types/trip';
 import { formatTripDateRange } from '../../utils/dateFormat';
 import { PressableScale } from '../ui/PressableScale';
-import { Chip, ChipTone } from '../ui/Chips';
+import { Chip, statusTone } from '../ui/Chips';
 
 interface TripCardProps {
   trip: Trip;
@@ -14,30 +14,28 @@ interface TripCardProps {
   onPress: (trip: Trip) => void;
 }
 
-const statusToneFor = (status: string): ChipTone =>
-  status === 'active' ? 'primary' : status === 'planned' ? 'warning' : 'neutral';
-
-const statusIcon: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
-  active: 'navigate',
-  planned: 'time-outline',
-  completed: 'checkmark-done-outline',
-};
-
-const statusColor: Record<string, string> = {
-  active: colors.primaryLight,
-  planned: colors.warning,
-  completed: colors.textSecondary,
-};
-
-const statusTint: Record<string, string> = {
-  active: colors.tintPrimary,
-  planned: colors.tintWarning,
-  completed: colors.surfaceLight,
+// One lookup per status instead of parallel icon/color/tint tables.
+const statusVisual: Record<
+  string,
+  {
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    color: string;
+    tint: string;
+  }
+> = {
+  active: { icon: 'navigate', color: colors.primaryLight, tint: colors.tintPrimary },
+  planned: { icon: 'time-outline', color: colors.warning, tint: colors.tintWarning },
+  completed: {
+    icon: 'checkmark-done-outline',
+    color: colors.textSecondary,
+    tint: colors.surfaceLight,
+  },
 };
 
 export const TripCard = ({ trip, currentUserId, onPress }: TripCardProps) => {
   const status = trip.status || 'active';
   const statusLabel = status[0].toUpperCase() + status.slice(1);
+  const visual = statusVisual[status] ?? statusVisual.completed;
 
   return (
     <PressableScale
@@ -48,15 +46,15 @@ export const TripCard = ({ trip, currentUserId, onPress }: TripCardProps) => {
       scaleTo={0.98}
     >
       <View style={styles.header}>
-        <View style={[styles.iconTile, { backgroundColor: statusTint[status] }]}>
-          <Ionicons name={statusIcon[status]} size={21} color={statusColor[status]} />
+        <View style={[styles.iconTile, { backgroundColor: visual.tint }]}>
+          <Ionicons name={visual.icon} size={21} color={visual.color} />
         </View>
         <View style={styles.titleBox}>
           <View style={styles.titleLine}>
             <Text style={styles.name} numberOfLines={1}>
               {trip.name}
             </Text>
-            <Chip label={statusLabel} tone={statusToneFor(status)} />
+            <Chip label={statusLabel} tone={statusTone(status)} />
           </View>
           <Text style={styles.dates}>{formatTripDateRange(trip.startDate, trip.endDate)}</Text>
         </View>
