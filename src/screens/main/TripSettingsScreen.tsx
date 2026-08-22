@@ -35,6 +35,16 @@ import {
   TrackingProfile,
 } from '../../services/trackingPreferences';
 import { restartBackgroundLocationTrackingIfRunning } from '../../services/backgroundLocation';
+import {
+  CRITICAL_MAX_METERS,
+  WARNING_MAX_METERS,
+  WARNING_MIN_METERS,
+  criticalMinimumForWarning,
+  nextCriticalMeters,
+  nextWarningMeters,
+  pairCriticalWithWarning,
+  snapThresholdMeters,
+} from '../../utils/tripAlertThresholds';
 
 interface Props {
   route: any;
@@ -104,7 +114,12 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [warningMeters, setWarningMeters] = useState(trip?.warningDistanceMeters || 200);
   const [criticalMeters, setCriticalMeters] = useState(trip?.criticalDistanceMeters || 500);
+  const [draftWarningMeters, setDraftWarningMeters] = useState(trip?.warningDistanceMeters || 200);
+  const [draftCriticalMeters, setDraftCriticalMeters] = useState(
+    trip?.criticalDistanceMeters || 500,
+  );
   const [savingThresholds, setSavingThresholds] = useState(false);
+  const [slidersActive, setSlidersActive] = useState(false);
   const [offlinePack, setOfflinePack] = useState<TripOfflinePackInfo | null>(null);
   const [trackingProfile, setTrackingProfileState] = useState<TrackingProfile>('balanced');
   const [switchingProfile, setSwitchingProfile] = useState(false);
@@ -173,6 +188,16 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
     void load();
   }, [tripId]);
 
+  useEffect(() => {
+    if (!trip) return;
+    const warning = trip.warningDistanceMeters || 200;
+    const critical = trip.criticalDistanceMeters || 500;
+    setWarningMeters(warning);
+    setCriticalMeters(critical);
+    setDraftWarningMeters(warning);
+    setDraftCriticalMeters(critical);
+  }, [trip?.id, trip?.warningDistanceMeters, trip?.criticalDistanceMeters]);
+
   const toggle = async (key: PreferenceKey, enabled: boolean) => {
     if (!preferences || savingKey) return;
     const previous = preferences;
@@ -189,6 +214,25 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
     }
   };
 
+  const applyWarningMeters = (next: number) => {
+    const warning = snapThresholdMeters(next, WARNING_MIN_METERS, WARNING_MAX_METERS);
+    const critical = pairCriticalWithWarning(warning, criticalMeters);
+    setWarningMeters(warning);
+    setDraftWarningMeters(warning);
+    setCriticalMeters(critical);
+    setDraftCriticalMeters(critical);
+  };
+
+  const applyCriticalMeters = (next: number) => {
+    const critical = snapThresholdMeters(
+      next,
+      criticalMinimumForWarning(warningMeters),
+      CRITICAL_MAX_METERS,
+    );
+    setCriticalMeters(critical);
+    setDraftCriticalMeters(critical);
+  };
+
   if (!trip)
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -203,7 +247,7 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} scrollEnabled={!slidersActive}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.back}
@@ -353,71 +397,139 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
             })}
           </View>
         </View>
-        {trip.createdBy === user?.uid && trip.status !== 'completed' ? (
-          <View style={styles.thresholds}>
-            <Text style={styles.sectionTitle}>Separation thresholds</Text>
-            <Text style={styles.sectionDescription}>
-              Trip-wide values are managed by the organizer. Changes reconcile silently.
-            </Text>
-            <Text style={styles.rowTitle}>Warning · {warningMeters} m</Text>
-            <Slider
-              minimumValue={100}
-              maximumValue={400}
-              step={50}
-              value={warningMeters}
-              onSlidingComplete={(value) => {
-                // Commit on release: updating state on every drag tick makes the
-                // controlled value prop snap the thumb back mid-drag on Android.
-                const next = Math.round(value / 50) * 50;
-                setWarningMeters(next);
-                setCriticalMeters((current) => Math.max(current, next + 100));
-              }}
-              minimumTrackTintColor={colors.warning}
-              maximumTrackTintColor={colors.border}
-            />
-            <Text style={styles.rowTitle}>Critical · {criticalMeters} m</Text>
-            <Slider
-              minimumValue={Math.max(300, warningMeters + 100)}
-              maximumValue={2000}
-              step={50}
-              value={criticalMeters}
-              onSlidingComplete={(value) =>
-                setCriticalMeters(
-                  Math.min(2000, Math.max(Math.round(value / 50) * 50, warningMeters + 100)),
-                )
-              }
-              minimumTrackTintColor={colors.critical}
-              maximumTrackTintColor={colors.border}
-            />
-            <TouchableOpacity
-              style={styles.saveThresholds}
-              disabled={savingThresholds}
-              onPress={async () => {
-                setSavingThresholds(true);
-                try {
-                  await updateTripAlertThresholds(tripId, {
-                    warningDistanceMeters: warningMeters,
-                    criticalDistanceMeters: Math.max(criticalMeters, warningMeters + 100),
-                  });
-                  await refreshTrips();
-                } catch {
-                  Alert.alert(
-                    'Thresholds not saved',
-                    'Only the organizer can change valid thresholds for an active or planned trip.',
-                  );
-                } finally {
-                  setSavingThresholds(false);
+        <View style={styles.thresholds}>
+          <Text style={styles.sectionTitle}>Separation thresholds</Text>
+          {trip.createdBy === user?.uid && trip.status !== 'completed' ? (
+            <>
+              <Text style={styles.sectionDescription}>
+                How far behind the Route Leader counts as a warning or critical alert. Use + / − if
+                the slider is hard to drag.
+              </Text>
+              <View style={styles.thresholdHeader}>
+                <Text style={styles.rowTitle}>Warning · {draftWarningMeters} m</Text>
+                <View style={styles.stepperRow}>
+                  <TouchableOpacity
+                    style={styles.stepper}
+                    accessibilityLabel="Decrease warning threshold"
+                    onPress={() => applyWarningMeters(nextWarningMeters(warningMeters, -1))}
+                  >
+                    <Ionicons name="remove" size={18} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.stepper}
+                    accessibilityLabel="Increase warning threshold"
+                    onPress={() => applyWarningMeters(nextWarningMeters(warningMeters, 1))}
+                  >
+                    <Ionicons name="add" size={18} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <Slider
+                style={styles.slider}
+                minimumValue={WARNING_MIN_METERS}
+                maximumValue={WARNING_MAX_METERS}
+                step={50}
+                value={warningMeters}
+                onSlidingStart={() => setSlidersActive(true)}
+                onValueChange={(value) =>
+                  setDraftWarningMeters(
+                    snapThresholdMeters(value, WARNING_MIN_METERS, WARNING_MAX_METERS),
+                  )
                 }
-              }}
-            >
-              {savingThresholds ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.saveThresholdsText}>Save thresholds</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        ) : null}
+                onSlidingComplete={(value) => {
+                  applyWarningMeters(value);
+                  setSlidersActive(false);
+                }}
+                minimumTrackTintColor={colors.warning}
+                maximumTrackTintColor={colors.border}
+                thumbTintColor={colors.warning}
+              />
+              <View style={styles.thresholdHeader}>
+                <Text style={styles.rowTitle}>Critical · {draftCriticalMeters} m</Text>
+                <View style={styles.stepperRow}>
+                  <TouchableOpacity
+                    style={styles.stepper}
+                    accessibilityLabel="Decrease critical threshold"
+                    onPress={() =>
+                      applyCriticalMeters(nextCriticalMeters(criticalMeters, warningMeters, -1))
+                    }
+                  >
+                    <Ionicons name="remove" size={18} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.stepper}
+                    accessibilityLabel="Increase critical threshold"
+                    onPress={() =>
+                      applyCriticalMeters(nextCriticalMeters(criticalMeters, warningMeters, 1))
+                    }
+                  >
+                    <Ionicons name="add" size={18} color={colors.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <Slider
+                style={styles.slider}
+                minimumValue={criticalMinimumForWarning(warningMeters)}
+                maximumValue={CRITICAL_MAX_METERS}
+                step={50}
+                value={criticalMeters}
+                onSlidingStart={() => setSlidersActive(true)}
+                onValueChange={(value) =>
+                  setDraftCriticalMeters(
+                    snapThresholdMeters(
+                      value,
+                      criticalMinimumForWarning(warningMeters),
+                      CRITICAL_MAX_METERS,
+                    ),
+                  )
+                }
+                onSlidingComplete={(value) => {
+                  applyCriticalMeters(value);
+                  setSlidersActive(false);
+                }}
+                minimumTrackTintColor={colors.critical}
+                maximumTrackTintColor={colors.border}
+                thumbTintColor={colors.critical}
+              />
+              <TouchableOpacity
+                style={styles.saveThresholds}
+                disabled={savingThresholds}
+                onPress={async () => {
+                  setSavingThresholds(true);
+                  try {
+                    await updateTripAlertThresholds(tripId, {
+                      warningDistanceMeters: warningMeters,
+                      criticalDistanceMeters: pairCriticalWithWarning(
+                        warningMeters,
+                        criticalMeters,
+                      ),
+                    });
+                    await refreshTrips();
+                  } catch {
+                    Alert.alert(
+                      'Thresholds not saved',
+                      'Only the organizer can change valid thresholds for an active or planned trip.',
+                    );
+                  } finally {
+                    setSavingThresholds(false);
+                  }
+                }}
+              >
+                {savingThresholds ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.saveThresholdsText}>Save thresholds</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text style={styles.sectionDescription}>
+              Warning {trip.warningDistanceMeters ?? 200} m · Critical{' '}
+              {trip.criticalDistanceMeters ?? 500} m. Only the organizer can change these on a
+              planned or active trip.
+            </Text>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -488,6 +600,24 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', paddingVertical: 30 },
   error: { fontSize: 13, color: colors.critical, textAlign: 'center' },
   thresholds: { marginTop: 24, gap: 8 },
+  thresholdHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  stepperRow: { flexDirection: 'row', gap: 8 },
+  stepper: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slider: { width: '100%', height: 40 },
   saveThresholds: {
     minHeight: 44,
     borderRadius: 8,

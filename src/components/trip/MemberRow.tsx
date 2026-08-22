@@ -139,9 +139,9 @@ export const MemberRow = ({
               : ''}
           </Text>
         ) : null}
-        {canManage ? (
+        {(!completed && !isMe && onNudge) || canManage ? (
           <View style={styles.actions}>
-            {!isMe && onNudge ? (
+            {!completed && !isMe && onNudge ? (
               <TouchableOpacity
                 style={styles.manageButton}
                 onPress={onNudge}
@@ -158,13 +158,13 @@ export const MemberRow = ({
                 </Text>
               </TouchableOpacity>
             ) : null}
-            {!isRouteLeader ? (
+            {canManage && !isRouteLeader ? (
               <TouchableOpacity style={styles.manageButton} onPress={onMakeLeader}>
                 <Ionicons name="navigate-outline" size={16} color={colors.link} />
                 <Text style={styles.manageText}>Make leader</Text>
               </TouchableOpacity>
             ) : null}
-            {!isMe ? (
+            {canManage && !isMe ? (
               <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
                 <Ionicons name="person-remove-outline" size={16} color={colors.critical} />
                 <Text style={styles.removeText}>Remove member</Text>

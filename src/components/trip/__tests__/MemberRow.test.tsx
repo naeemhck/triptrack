@@ -79,14 +79,15 @@ describe('MemberRow', () => {
 
   it('sends a nudge when the action is available', () => {
     const onNudge = jest.fn();
-    const view = render(<MemberRow {...baseProps} canManage onNudge={onNudge} />);
+    const view = render(<MemberRow {...baseProps} onNudge={onNudge} />);
     fireEvent.press(view.getByText('Ask location'));
     expect(onNudge).toHaveBeenCalledTimes(1);
+    expect(view.queryByText('Make leader')).toBeNull();
   });
 
   it('shows the rate-limited state without firing the handler', () => {
     const onNudge = jest.fn();
-    const view = render(<MemberRow {...baseProps} canManage onNudge={onNudge} nudgeDisabled />);
+    const view = render(<MemberRow {...baseProps} onNudge={onNudge} nudgeDisabled />);
     expect(view.getByText('Nudged recently')).toBeTruthy();
     fireEvent.press(view.getByText('Nudged recently'));
     expect(onNudge).not.toHaveBeenCalled();
