@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
+import { letterSpacing, radius, spacing } from '../../theme';
 import { AuthMode } from '../../types/auth';
+import { AppButton } from '../../components/ui/Buttons';
+import { LabeledInput } from '../../components/ui/Inputs';
+import { FadeInView } from '../../components/ui/FadeInView';
 import {
   authCredentialsSchema,
   emailSchema,
@@ -118,10 +121,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>TripTrack</Text>
-          <Text style={styles.subtitle}>Sign in to your trip groups</Text>
+          <FadeInView style={styles.brandLockup}>
+            <View style={styles.brandTile}>
+              <Ionicons name="navigate" size={26} color={colors.primaryLight} />
+            </View>
+            <Text style={styles.title}>TripTrack</Text>
+            <Text style={styles.subtitle}>Sign in to your trip groups</Text>
+          </FadeInView>
 
-          <View style={styles.tabs}>
+          <FadeInView delay={80} style={styles.tabs}>
             <TouchableOpacity
               style={[styles.tab, mode === 'password' && styles.activeTab]}
               onPress={() => selectMode('password')}
@@ -146,74 +154,72 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 Create Account
               </Text>
             </TouchableOpacity>
-          </View>
+          </FadeInView>
 
-          <View style={styles.card}>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            {info ? <Text style={styles.info}>{info}</Text> : null}
-            {mode === 'sign_up' ? (
-              <>
-                <Text style={styles.label}>Display name</Text>
-                <TextInput
-                  style={styles.input}
+          <FadeInView delay={160} style={styles.card}>
+            {error ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle-outline" size={15} color={colors.danger} />
+                <Text style={styles.error}>{error}</Text>
+              </View>
+            ) : null}
+            {info ? (
+              <View style={styles.infoBox}>
+                <Ionicons name="mail-outline" size={15} color={colors.primaryLight} />
+                <Text style={styles.info}>{info}</Text>
+              </View>
+            ) : null}
+            <View style={styles.form}>
+              {mode === 'sign_up' ? (
+                <LabeledInput
+                  label="Display name"
                   value={displayName}
                   onChangeText={setDisplayName}
                   placeholder="Alex River"
-                  placeholderTextColor={colors.textMuted}
                   maxLength={100}
                 />
-              </>
-            ) : null}
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="alex@example.com"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {mode !== 'magic_link' ? (
-              <>
-                <Text style={styles.label}>Password</Text>
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="At least 8 characters"
-                  placeholderTextColor={colors.textMuted}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-                {mode === 'sign_up' ? (
-                  <Text style={styles.helper}>Use a long, unique password or passphrase.</Text>
-                ) : null}
-              </>
-            ) : (
-              <Text style={styles.helper}>
-                Receive a one-time sign-in link and verification code by email.
-              </Text>
-            )}
-
-            <TouchableOpacity
-              style={[styles.primary, submitting && styles.disabled]}
-              disabled={submitting}
-              onPress={mode === 'password' ? signIn : mode === 'magic_link' ? magicLink : signUp}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#FFF" />
+              ) : null}
+              <LabeledInput
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="alex@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {mode !== 'magic_link' ? (
+                <>
+                  <LabeledInput
+                    label="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="At least 8 characters"
+                    secureTextEntry
+                    autoCapitalize="none"
+                  />
+                  {mode === 'sign_up' ? (
+                    <Text style={styles.helper}>Use a long, unique password or passphrase.</Text>
+                  ) : null}
+                </>
               ) : (
-                <Text style={styles.primaryText}>
-                  {mode === 'password'
-                    ? 'Sign In'
-                    : mode === 'magic_link'
-                      ? 'Send Magic Link'
-                      : 'Create Account'}
+                <Text style={styles.helper}>
+                  Receive a one-time sign-in link and verification code by email.
                 </Text>
               )}
-            </TouchableOpacity>
+            </View>
+
+            <AppButton
+              label={
+                mode === 'password'
+                  ? 'Sign In'
+                  : mode === 'magic_link'
+                    ? 'Send Magic Link'
+                    : 'Create Account'
+              }
+              onPress={mode === 'password' ? signIn : mode === 'magic_link' ? magicLink : signUp}
+              loading={submitting}
+            />
             {mode === 'password' ? (
               <TouchableOpacity
                 style={styles.linkButton}
@@ -223,7 +229,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 <Text style={styles.linkText}>Forgot password?</Text>
               </TouchableOpacity>
             ) : null}
-          </View>
+          </FadeInView>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -233,21 +239,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  content: { padding: 24, paddingTop: 64, paddingBottom: 40 },
-  title: { color: colors.textPrimary, fontSize: 34, fontWeight: '800', textAlign: 'center' },
+  content: { padding: spacing.xl + 4, paddingTop: 56, paddingBottom: 40 },
+  brandLockup: { alignItems: 'center', marginBottom: spacing.xxl + 4 },
+  brandTile: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.xl,
+    backgroundColor: colors.tintPrimary,
+    borderWidth: 1.5,
+    borderColor: colors.borderActive,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  title: {
+    color: colors.textPrimary,
+    fontSize: 32,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: letterSpacing.tight,
+  },
   subtitle: {
     color: colors.textSecondary,
     fontSize: 15,
     textAlign: 'center',
     marginTop: 6,
-    marginBottom: 28,
   },
   tabs: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: 4,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   tab: {
     flex: 1,
@@ -255,41 +280,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
-    borderRadius: 6,
+    borderRadius: radius.sm + 1,
   },
   activeTab: { backgroundColor: colors.primary },
   tabText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', textAlign: 'center' },
-  activeTabText: { color: '#FFF' },
+  activeTabText: { color: colors.onPrimary },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 20,
+    borderRadius: radius.lg,
+    padding: spacing.lg + 4,
   },
-  label: { color: colors.textSecondary, fontSize: 13, fontWeight: '700', marginBottom: 7 },
-  input: {
-    backgroundColor: colors.inputBg,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 8,
-    color: colors.textPrimary,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 14,
+  form: { gap: spacing.md, marginBottom: spacing.lg },
+  helper: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: -2 },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.errorBox,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
-  helper: { color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 16 },
-  error: { color: colors.danger, marginBottom: 14, lineHeight: 19 },
-  info: { color: colors.primaryLight, marginBottom: 14, lineHeight: 19 },
-  primary: {
-    minHeight: 48,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
+  error: { color: colors.danger, lineHeight: 19, flex: 1, fontSize: 13 },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.tintPrimary,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  info: { color: colors.primaryLight, lineHeight: 19, flex: 1, fontSize: 13 },
+  linkButton: {
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: spacing.sm,
   },
-  disabled: { opacity: 0.6 },
-  primaryText: { color: '#FFF', fontWeight: '800' },
-  linkButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   linkText: { color: colors.primaryLight, fontWeight: '700' },
 });

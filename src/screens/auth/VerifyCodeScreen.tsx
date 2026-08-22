@@ -5,13 +5,16 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
+import { letterSpacing, radius, spacing } from '../../theme';
+import { AppButton } from '../../components/ui/Buttons';
+import { FadeInView } from '../../components/ui/FadeInView';
 
 interface VerifyCodeScreenProps {
   route: any;
@@ -50,11 +53,18 @@ export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navig
       >
         <View style={styles.content}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.backButtonText}>← Back to Login</Text>
+            <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
+            <Text style={styles.backButtonText}>Back to Login</Text>
           </TouchableOpacity>
 
-          <View style={styles.header}>
-            <Text style={styles.icon}>{mode === 'email' ? '✉️' : '📲'}</Text>
+          <FadeInView style={styles.header}>
+            <View style={styles.iconTile}>
+              <Ionicons
+                name={mode === 'email' ? 'mail-outline' : 'phone-portrait-outline'}
+                size={26}
+                color={colors.primaryLight}
+              />
+            </View>
             <Text style={styles.title}>
               {mode === 'email' ? 'Check Your Email' : 'Enter Verification Code'}
             </Text>
@@ -63,11 +73,12 @@ export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navig
                 ? `We sent a magic sign-in link to ${email || 'your email'}. Click the link or confirm below.`
                 : `Enter the code sent to ${phone || 'your phone number'}.`}
             </Text>
-          </View>
+          </FadeInView>
 
-          <View style={styles.card}>
+          <FadeInView delay={100} style={styles.card}>
             {errorMsg ? (
               <View style={styles.errorBox}>
+                <Ionicons name="alert-circle-outline" size={15} color={colors.danger} />
                 <Text style={styles.errorText}>{errorMsg}</Text>
               </View>
             ) : null}
@@ -92,18 +103,8 @@ export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navig
               </View>
             )}
 
-            <TouchableOpacity
-              style={[styles.primaryButton, submitting && styles.disabledButton]}
-              onPress={handleVerify}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Verify & Continue</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+            <AppButton label="Verify & Continue" onPress={handleVerify} loading={submitting} />
+          </FadeInView>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -120,105 +121,107 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
   },
   backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
-    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.xl,
   },
   backButtonText: {
     color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.xxl,
   },
-  icon: {
-    fontSize: 40,
-    marginBottom: 12,
+  iconTile: {
+    width: 62,
+    height: 62,
+    borderRadius: radius.xl,
+    backgroundColor: colors.tintPrimary,
+    borderWidth: 1.5,
+    borderColor: colors.borderActive,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: 24,
     fontWeight: '800',
     color: colors.textPrimary,
     textAlign: 'center',
+    letterSpacing: letterSpacing.tight,
   },
   subtitle: {
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
     lineHeight: 20,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: radius.lg,
+    padding: spacing.lg + 4,
     borderWidth: 1,
     borderColor: colors.border,
   },
   inputLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   codeInput: {
     backgroundColor: colors.inputBg,
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 14,
     fontSize: 22,
+    fontWeight: '800',
     color: colors.textPrimary,
     letterSpacing: 6,
     textAlign: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.borderActive,
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   emailNoticeBox: {
     backgroundColor: colors.inputBg,
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 20,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
     alignItems: 'center',
   },
   emailNoticeText: {
     color: colors.textSecondary,
     fontSize: 13,
   },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
   errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.errorBox,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   errorText: {
     color: colors.danger,
     fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
   },
 });

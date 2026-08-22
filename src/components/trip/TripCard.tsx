@@ -1,9 +1,12 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { letterSpacing, radius, spacing } from '../../theme';
 import { Trip } from '../../types/trip';
 import { formatTripDateRange } from '../../utils/dateFormat';
+import { PressableScale } from '../ui/PressableScale';
+import { Chip, ChipTone } from '../ui/Chips';
 
 interface TripCardProps {
   trip: Trip;
@@ -11,54 +14,65 @@ interface TripCardProps {
   onPress: (trip: Trip) => void;
 }
 
+const statusToneFor = (status: string): ChipTone =>
+  status === 'active' ? 'primary' : status === 'planned' ? 'warning' : 'neutral';
+
+const statusIcon: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
+  active: 'navigate',
+  planned: 'time-outline',
+  completed: 'checkmark-done-outline',
+};
+
+const statusColor: Record<string, string> = {
+  active: colors.primaryLight,
+  planned: colors.warning,
+  completed: colors.textSecondary,
+};
+
+const statusTint: Record<string, string> = {
+  active: colors.tintPrimary,
+  planned: colors.tintWarning,
+  completed: colors.surfaceLight,
+};
+
 export const TripCard = ({ trip, currentUserId, onPress }: TripCardProps) => {
   const status = trip.status || 'active';
-  const statusStyle =
-    status === 'planned'
-      ? styles.plannedBadge
-      : status === 'completed'
-        ? styles.completedBadge
-        : styles.activeBadge;
-  const statusTextStyle =
-    status === 'planned'
-      ? styles.plannedText
-      : status === 'completed'
-        ? styles.completedText
-        : styles.activeText;
   const statusLabel = status[0].toUpperCase() + status.slice(1);
 
   return (
-    <TouchableOpacity
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={`Open ${trip.name}`}
       style={styles.card}
       onPress={() => onPress(trip)}
-      activeOpacity={0.7}
+      scaleTo={0.98}
     >
       <View style={styles.header}>
-        <View style={styles.iconBox}>
-          <Ionicons name="map-outline" size={23} color={colors.link} />
+        <View style={[styles.iconTile, { backgroundColor: statusTint[status] }]}>
+          <Ionicons name={statusIcon[status]} size={21} color={statusColor[status]} />
         </View>
         <View style={styles.titleBox}>
           <View style={styles.titleLine}>
             <Text style={styles.name} numberOfLines={1}>
               {trip.name}
             </Text>
-            <View style={statusStyle}>
-              <Text style={statusTextStyle}>{statusLabel}</Text>
-            </View>
+            <Chip label={statusLabel} tone={statusToneFor(status)} />
           </View>
           <Text style={styles.dates}>{formatTripDateRange(trip.startDate, trip.endDate)}</Text>
         </View>
         {trip.createdBy === currentUserId ? (
           <View style={styles.hostBadge}>
+            <Ionicons name="shield-checkmark-outline" size={11} color={colors.primaryLight} />
             <Text style={styles.hostText}>Host</Text>
           </View>
         ) : null}
       </View>
+      <Text style={styles.activity} numberOfLines={1}>
+        {trip.latestActivity || 'No recorded activity yet'}
+      </Text>
       <View style={styles.footer}>
         <View style={styles.codeBadge}>
-          <Ionicons name="key-outline" size={14} color={colors.textSecondary} />
+          <Ionicons name="key-outline" size={13} color={colors.primaryLight} />
           <Text style={styles.codeText}>{trip.inviteCode}</Text>
         </View>
         <View style={styles.members}>
@@ -75,69 +89,74 @@ export const TripCard = ({ trip, currentUserId, onPress }: TripCardProps) => {
           <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
         </View>
       </View>
-      <Text style={styles.activity} numberOfLines={1}>
-        {trip.latestActivity || 'No recorded activity yet'}
-      </Text>
-    </TouchableOpacity>
+    </PressableScale>
   );
 };
 
-const badge = { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 } as const;
-const badgeText = { fontSize: 9, fontWeight: '800' as const };
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     borderColor: colors.border,
     borderWidth: 1,
-    marginBottom: 14,
+    marginBottom: spacing.md + 2,
+    gap: spacing.md,
   },
-  header: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 },
-  iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: colors.inputBg,
+  header: { flexDirection: 'row', alignItems: 'center' },
+  iconTile: {
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: spacing.md,
   },
-  titleBox: { flex: 1 },
-  titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  name: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
-  dates: { fontSize: 12, color: colors.textSecondary },
+  titleBox: { flex: 1, minWidth: 0 },
+  titleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  name: { fontSize: 16, fontWeight: '800', color: colors.textPrimary, flexShrink: 1 },
+  dates: { fontSize: 12, color: colors.textSecondary, marginTop: 3 },
   hostBadge: {
-    backgroundColor: 'rgba(20, 184, 166, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.tintPrimary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    marginLeft: spacing.sm,
   },
-  hostText: { fontSize: 11, fontWeight: '700', color: colors.primaryLight },
+  hostText: { fontSize: 11, fontWeight: '800', color: colors.primaryLight },
+  activity: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingTop: 10,
+    paddingTop: spacing.md,
   },
   codeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     backgroundColor: colors.inputBg,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 5,
+    borderRadius: radius.sm,
   },
-  codeText: { fontSize: 12, fontWeight: '700', color: colors.primaryLight },
+  codeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primaryLight,
+    letterSpacing: letterSpacing.tight,
+  },
   members: { flexDirection: 'row', alignItems: 'center' },
-  avatars: { flexDirection: 'row', marginRight: 5 },
+  avatars: { flexDirection: 'row', marginRight: spacing.sm },
   avatar: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: radius.pill,
     marginLeft: -4,
     backgroundColor: colors.primaryDark,
     borderWidth: 1,
@@ -146,12 +165,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { color: colors.primaryLight, fontSize: 10, fontWeight: '800' },
-  activity: { color: colors.textMuted, fontSize: 11, marginTop: 10 },
   membersText: { fontSize: 13, color: colors.textSecondary, marginRight: 6 },
-  activeBadge: { ...badge, backgroundColor: 'rgba(20, 184, 166, 0.15)' },
-  activeText: { ...badgeText, color: colors.primaryLight },
-  plannedBadge: { ...badge, backgroundColor: 'rgba(245, 158, 11, 0.15)' },
-  plannedText: { ...badgeText, color: '#FBBF24' },
-  completedBadge: { ...badge, backgroundColor: 'rgba(100, 116, 139, 0.15)' },
-  completedText: { ...badgeText, color: colors.textSecondary },
 });

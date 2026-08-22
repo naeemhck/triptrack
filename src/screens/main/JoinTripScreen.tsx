@@ -14,10 +14,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTrips } from '../../context/TripContext';
 import { colors } from '../../theme/colors';
+import { letterSpacing, radius, spacing } from '../../theme';
 import { TripPreview } from '../../types/trip';
 import { inviteCodeSchema, validationMessage } from '../../validation/schemas';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
+import { AppButton } from '../../components/ui/Buttons';
+import { FadeInView } from '../../components/ui/FadeInView';
 
 interface JoinTripScreenProps {
   route: any;
@@ -88,19 +91,23 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           {/* Top Back Navigation */}
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtnText}>← Back to Trips</Text>
+            <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
+            <Text style={styles.backBtnText}>Back to Trips</Text>
           </TouchableOpacity>
 
-          <View style={styles.header}>
-            <Text style={styles.headerIcon}>🔑</Text>
+          <FadeInView style={styles.header}>
+            <View style={styles.headerIconTile}>
+              <Ionicons name="key-outline" size={26} color={colors.primaryLight} />
+            </View>
             <Text style={styles.title}>Join a Trip</Text>
             <Text style={styles.subtitle}>Enter an invite code or tap a shared link</Text>
-          </View>
+          </FadeInView>
 
           {/* Code Search Bar */}
-          <View style={styles.searchCard}>
+          <FadeInView delay={100} style={styles.searchCard}>
             {errorMsg ? (
               <View style={styles.errorBox}>
+                <Ionicons name="alert-circle-outline" size={15} color={colors.danger} />
                 <Text style={styles.errorText}>{errorMsg}</Text>
               </View>
             ) : null}
@@ -126,7 +133,7 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
                 disabled={loadingPreview}
               >
                 {loadingPreview ? (
-                  <ActivityIndicator color="#FFF" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <Text style={styles.resolveBtnText}>Find</Text>
                 )}
@@ -145,13 +152,16 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
               <Ionicons name="qr-code-outline" size={19} color={colors.primaryLight} />
               <Text style={styles.scanText}>Scan QR code</Text>
             </TouchableOpacity>
-          </View>
+          </FadeInView>
 
           {/* Trip Preview Card */}
           {preview ? (
-            <View style={styles.previewCard}>
+            <FadeInView delay={60} style={styles.previewCard}>
               <View style={styles.previewHeader}>
-                <Text style={styles.previewBadge}>TRIP FOUND ✨</Text>
+                <View style={styles.previewBadge}>
+                  <Ionicons name="sparkles" size={11} color={colors.primaryLight} />
+                  <Text style={styles.previewBadgeText}>TRIP FOUND ✨</Text>
+                </View>
                 <Text style={styles.previewTitle}>{preview.trip.name}</Text>
                 <Text style={styles.previewDates}>
                   📅 {preview.trip.startDate} → {preview.trip.endDate}
@@ -177,18 +187,12 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
                 ))}
               </View>
 
-              <TouchableOpacity
-                style={[styles.joinConfirmBtn, joining && styles.disabledBtn]}
+              <AppButton
+                label="Confirm & Join Trip 🚀"
                 onPress={handleConfirmJoin}
-                disabled={joining}
-              >
-                {joining ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <Text style={styles.joinConfirmBtnText}>Confirm & Join Trip 🚀</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+                loading={joining}
+              />
+            </FadeInView>
           ) : null}
         </ScrollView>
         <Modal
@@ -209,6 +213,12 @@ export const JoinTripScreen: React.FC<JoinTripScreenProps> = ({ route, navigatio
                 void handleResolveCode(nextCode);
               }}
             />
+            <View style={styles.scanFrame} pointerEvents="none">
+              <View style={[styles.corner, styles.cornerTopLeft]} />
+              <View style={[styles.corner, styles.cornerTopRight]} />
+              <View style={[styles.corner, styles.cornerBottomLeft]} />
+              <View style={[styles.corner, styles.cornerBottomRight]} />
+            </View>
             <TouchableOpacity
               style={styles.closeScanner}
               onPress={() => setScannerOpen(false)}
@@ -230,105 +240,160 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   container: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
     paddingBottom: 40,
   },
   backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
-    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.xl,
   },
   backBtnText: {
     color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.xxl,
   },
-  headerIcon: {
-    fontSize: 36,
-    marginBottom: 8,
+  headerIconTile: {
+    width: 62,
+    height: 62,
+    borderRadius: radius.xl,
+    backgroundColor: colors.tintPrimary,
+    borderWidth: 1.5,
+    borderColor: colors.borderActive,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: 24,
     fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: letterSpacing.tight,
   },
   subtitle: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginTop: 4,
+    marginTop: spacing.xs + 2,
     textAlign: 'center',
   },
   searchCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: radius.lg,
+    padding: spacing.lg + 4,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   scanButton: {
     minHeight: 44,
-    marginTop: 12,
+    marginTop: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: spacing.sm,
     borderWidth: 1,
     borderColor: colors.borderActive,
-    borderRadius: 8,
+    borderRadius: radius.md,
+    backgroundColor: colors.tintPrimary,
   },
   scanText: { color: colors.primaryLight, fontWeight: '700' },
   scanner: {
     flex: 1,
     backgroundColor: '#000',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: 50,
+    justifyContent: 'center',
+  },
+  scanFrame: {
+    width: 240,
+    height: 240,
+  },
+  corner: {
+    position: 'absolute',
+    width: 34,
+    height: 34,
+    borderColor: colors.borderActive,
+  },
+  cornerTopLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderTopLeftRadius: 12,
+  },
+  cornerTopRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderTopRightRadius: 12,
+  },
+  cornerBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderBottomLeftRadius: 12,
+  },
+  cornerBottomRight: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderBottomRightRadius: 12,
   },
   closeScanner: {
     position: 'absolute',
-    right: 20,
+    right: spacing.xl,
     top: 50,
     width: 46,
     height: 46,
-    borderRadius: 23,
+    borderRadius: radius.pill,
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   scannerHint: {
+    position: 'absolute',
+    bottom: 90,
     color: '#FFF',
     backgroundColor: 'rgba(0,0,0,0.65)',
-    padding: 12,
-    borderRadius: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.pill,
     fontWeight: '700',
+    fontSize: 13,
   },
   inputLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   inputRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: spacing.sm + 2,
   },
   codeInput: {
     flex: 1,
     backgroundColor: colors.inputBg,
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 12,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.primaryLight,
     letterSpacing: 2,
     borderWidth: 1,
@@ -336,8 +401,8 @@ const styles = StyleSheet.create({
   },
   resolveBtn: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -345,26 +410,29 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   resolveBtnText: {
-    color: '#FFF',
+    color: colors.onPrimary,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.errorBox,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   errorText: {
     color: colors.danger,
     fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
   },
   previewCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: radius.lg,
+    padding: spacing.lg + 4,
     borderWidth: 1.5,
     borderColor: colors.primary,
   },
@@ -372,11 +440,20 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   previewBadge: {
-    fontSize: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.tintPrimary,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    marginBottom: spacing.sm + 2,
+  },
+  previewBadgeText: {
+    fontSize: 10,
     fontWeight: '800',
     color: colors.primaryLight,
-    letterSpacing: 1,
-    marginBottom: 6,
+    letterSpacing: letterSpacing.chip,
   },
   previewTitle: {
     fontSize: 20,
@@ -386,64 +463,53 @@ const styles = StyleSheet.create({
   previewDates: {
     fontSize: 13,
     color: colors.textSecondary,
-    marginTop: 4,
+    marginTop: spacing.xs + 2,
   },
   divider: {
     height: 1,
     backgroundColor: colors.border,
-    marginVertical: 16,
+    marginVertical: spacing.lg,
   },
   membersLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textMuted,
-    letterSpacing: 1,
-    marginBottom: 12,
+    letterSpacing: letterSpacing.chip,
+    marginBottom: spacing.md,
   },
   membersList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 24,
+    gap: spacing.sm + 2,
+    marginBottom: spacing.xl,
   },
   memberChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.inputBg,
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.sm + 2,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
   },
   memberAvatar: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.secondary,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   memberInitial: {
-    color: '#FFF',
+    color: colors.primaryLight,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   memberName: {
     fontSize: 13,
     color: colors.textPrimary,
-  },
-  joinConfirmBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  joinConfirmBtnText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

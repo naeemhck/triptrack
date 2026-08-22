@@ -28,4 +28,15 @@ export const colors = {
   danger: '#FB7185',
   badgeDemo: 'rgba(251,191,36,0.15)',
   badgeDemoText: '#FBBF24',
+  /** Text/icon color shown on filled teal CTAs. */
+  onPrimary: '#FFFFFF',
+  /** Scrim behind dialogs. */
+  scrim: 'rgba(8, 12, 14, 0.86)',
+  /** Status tints at ~14% alpha for chips and icon tiles. */
+  tintPrimary: 'rgba(45,212,191,0.14)',
+  tintWarning: 'rgba(251,191,36,0.14)',
+  tintCritical: 'rgba(251,113,133,0.14)',
+  tintLink: 'rgba(96,165,250,0.14)',
+  tintViolet: 'rgba(167,139,250,0.14)',
+  errorBox: 'rgba(251,113,133,0.12)',
 };

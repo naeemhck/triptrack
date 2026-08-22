@@ -2,12 +2,15 @@ import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { TripProvider, useTrips } from '../context/TripContext';
 import { AuthNavigator } from './AuthNavigator';
 import { TripNavigator } from './TripNavigator';
 import { colors } from '../theme/colors';
+import { letterSpacing, radius, spacing } from '../theme';
 import { ResetPasswordScreen } from '../screens/auth/ResetPasswordScreen';
+import { FadeInView } from '../components/ui/FadeInView';
 import { setupNotificationResponseListener } from '../services/notifications';
 
 const prefix = Linking.createURL('/');
@@ -66,10 +69,13 @@ const NavigationContent: React.FC = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <View style={styles.logoBadge}>
-          <Text style={styles.logoIcon}>📍</Text>
-        </View>
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 16 }} />
+        <FadeInView style={styles.loadingLockup}>
+          <View style={styles.logoBadge}>
+            <Ionicons name="navigate" size={34} color={colors.primaryLight} />
+          </View>
+          <Text style={styles.logoWord}>TripTrack</Text>
+        </FadeInView>
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.lg }} />
         <Text style={styles.loadingText}>Initializing TripTrack...</Text>
       </View>
     );
@@ -97,22 +103,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingLockup: { alignItems: 'center', gap: spacing.md },
   logoBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
+    width: 68,
+    height: 68,
+    borderRadius: radius.xl,
+    backgroundColor: colors.tintPrimary,
     borderColor: colors.borderActive,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoIcon: {
-    fontSize: 28,
+  logoWord: {
+    color: colors.textPrimary,
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: letterSpacing.tight,
   },
   loadingText: {
     color: colors.textSecondary,
-    fontSize: 14,
-    marginTop: 12,
+    fontSize: 13,
+    marginTop: spacing.md,
   },
 });

@@ -1,12 +1,33 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Modal } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, Text, View, Modal } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { radius, spacing } from '../../theme';
+import { AppButton } from '../ui/Buttons';
 
 interface BackgroundPermissionModalProps {
   visible: boolean;
   onConfirmAlways: () => void;
   onFallbackForeground: () => void;
 }
+
+const DialogEntrance = ({ children }: { children: React.ReactNode }) => {
+  const scale = useRef(new Animated.Value(0.92)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, speed: 30, bounciness: 6, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+    ]).start();
+  }, [opacity, scale]);
+
+  return (
+    <Animated.View style={{ transform: [{ scale }], opacity, width: '100%', alignItems: 'center' }}>
+      {children}
+    </Animated.View>
+  );
+};
 
 export const BackgroundPermissionModal: React.FC<BackgroundPermissionModalProps> = ({
   visible,
@@ -16,37 +37,39 @@ export const BackgroundPermissionModal: React.FC<BackgroundPermissionModalProps>
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
-        <View style={styles.dialog}>
-          <View style={styles.iconCircle}>
-            <Text style={styles.icon}>🛰️</Text>
-          </View>
+        <DialogEntrance>
+          <View style={styles.dialog}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="locate" size={30} color={colors.primaryLight} />
+            </View>
 
-          <Text style={styles.title}>Enable Background Location Sharing?</Text>
+            <Text style={styles.title}>Enable Background Location Sharing?</Text>
 
-          <Text style={styles.description}>
-            TripTrack needs <Text style={styles.highlight}>"Always Allow"</Text> location access so
-            your trip group can see your live position even when your phone is locked or the app is
-            in the background.
-          </Text>
-
-          <View style={styles.infoBox}>
-            <Text style={styles.infoBoxTitle}>🔒 Privacy & Safety Defaults:</Text>
-            <Text style={styles.infoBoxText}>
-              • Location sharing is strictly trip-scoped.{'\n'}• Auto-disables when you turn off
-              sharing or leave the trip.{'\n'}• Battery-conscious 30s / 50m update interval.
+            <Text style={styles.description}>
+              TripTrack needs <Text style={styles.highlight}>"Always Allow"</Text> location access
+              so your trip group can see your live position even when your phone is locked or the
+              app is in the background.
             </Text>
-          </View>
 
-          <View style={styles.buttonStack}>
-            <TouchableOpacity style={styles.alwaysBtn} onPress={onConfirmAlways}>
-              <Text style={styles.alwaysBtnText}>Enable "Always" Access →</Text>
-            </TouchableOpacity>
+            <View style={styles.infoBox}>
+              <Text style={styles.infoBoxTitle}>🔒 Privacy & Safety Defaults:</Text>
+              <Text style={styles.infoBoxText}>
+                • Location sharing is strictly trip-scoped.{'\n'}• Auto-disables when you turn off
+                sharing or leave the trip.{'\n'}• Battery-conscious 30s / 50m update interval.
+              </Text>
+            </View>
 
-            <TouchableOpacity style={styles.foregroundBtn} onPress={onFallbackForeground}>
-              <Text style={styles.foregroundBtnText}>Share Only While App is Open</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonStack}>
+              <AppButton label='Enable "Always" Access →' onPress={onConfirmAlways} />
+
+              <AppButton
+                label="Share Only While App is Open"
+                onPress={onFallbackForeground}
+                variant="secondary"
+              />
+            </View>
           </View>
-        </View>
+        </DialogEntrance>
       </View>
     </Modal>
   );
@@ -55,16 +78,16 @@ export const BackgroundPermissionModal: React.FC<BackgroundPermissionModalProps>
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: colors.scrim,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.xl,
   },
   dialog: {
     width: '100%',
     backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: radius.xl,
+    padding: spacing.xxl,
     borderColor: colors.borderActive,
     borderWidth: 1.5,
     alignItems: 'center',
@@ -72,28 +95,27 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 64,
     height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(20, 184, 166, 0.15)',
+    borderRadius: radius.pill,
+    backgroundColor: colors.tintPrimary,
+    borderWidth: 1,
+    borderColor: colors.borderActive,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-  },
-  icon: {
-    fontSize: 32,
+    marginBottom: spacing.lg,
   },
   title: {
     fontSize: 20,
     fontWeight: '800',
     color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   description: {
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   highlight: {
     color: colors.primaryLight,
@@ -102,15 +124,15 @@ const styles = StyleSheet.create({
   infoBox: {
     width: '100%',
     backgroundColor: colors.inputBg,
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: radius.md,
+    padding: spacing.md + 2,
     borderColor: colors.border,
     borderWidth: 1,
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   infoBoxTitle: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.primaryLight,
     marginBottom: 6,
   },
@@ -121,30 +143,6 @@ const styles = StyleSheet.create({
   },
   buttonStack: {
     width: '100%',
-    gap: 10,
-  },
-  alwaysBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  alwaysBtnText: {
-    color: '#FFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  foregroundBtn: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderColor: colors.border,
-    borderWidth: 1,
-  },
-  foregroundBtnText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
+    gap: spacing.sm + 2,
   },
 });

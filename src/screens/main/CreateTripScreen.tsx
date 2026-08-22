@@ -3,19 +3,23 @@ import {
   StyleSheet,
   Text,
   View,
-  TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
   Share,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useTrips } from '../../context/TripContext';
 import { colors } from '../../theme/colors';
+import { letterSpacing, radius, spacing } from '../../theme';
 import { Trip } from '../../types/trip';
 import { tripCreateSchema, validationMessage } from '../../validation/schemas';
+import { AppButton } from '../../components/ui/Buttons';
+import { LabeledInput } from '../../components/ui/Inputs';
+import { CodeDisplay } from '../../components/ui/Feedback';
+import { FadeInView } from '../../components/ui/FadeInView';
 
 interface CreateTripScreenProps {
   navigation: any;
@@ -76,55 +80,50 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           {/* Top Back Navigation */}
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtnText}>← Back to Trips</Text>
+            <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
+            <Text style={styles.backBtnText}>Back to Trips</Text>
           </TouchableOpacity>
 
           {!createdTrip ? (
             <View>
-              <View style={styles.header}>
-                <Text style={styles.headerIcon}>🗺️</Text>
+              <FadeInView style={styles.header}>
+                <View style={styles.headerIconTile}>
+                  <Ionicons name="map-outline" size={26} color={colors.primaryLight} />
+                </View>
                 <Text style={styles.title}>Create a New Trip</Text>
                 <Text style={styles.subtitle}>Set up location sharing for your group trip</Text>
-              </View>
+              </FadeInView>
 
-              <View style={styles.card}>
+              <FadeInView delay={100} style={styles.card}>
                 {errorMsg ? (
                   <View style={styles.errorBox}>
+                    <Ionicons name="alert-circle-outline" size={15} color={colors.danger} />
                     <Text style={styles.errorText}>{errorMsg}</Text>
                   </View>
                 ) : null}
 
-                <Text style={styles.inputLabel}>Trip Name</Text>
-                <TextInput
-                  style={styles.input}
+                <LabeledInput
+                  label="Trip Name"
                   placeholder="e.g. Summer Beach House '26"
-                  placeholderTextColor={colors.textMuted}
                   value={name}
                   onChangeText={setName}
                 />
 
                 <View style={styles.row}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.inputLabel}>Start Date</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={colors.textMuted}
-                      value={startDate}
-                      onChangeText={setStartDate}
-                    />
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.inputLabel}>End Date</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={colors.textMuted}
-                      value={endDate}
-                      onChangeText={setEndDate}
-                    />
-                  </View>
+                  <LabeledInput
+                    label="Start Date"
+                    placeholder="YYYY-MM-DD"
+                    value={startDate}
+                    onChangeText={setStartDate}
+                    style={{ flex: 1 }}
+                  />
+                  <LabeledInput
+                    label="End Date"
+                    placeholder="YYYY-MM-DD"
+                    value={endDate}
+                    onChangeText={setEndDate}
+                    style={{ flex: 1 }}
+                  />
                 </View>
 
                 <Text style={styles.helperText}>
@@ -132,47 +131,42 @@ export const CreateTripScreen: React.FC<CreateTripScreenProps> = ({ navigation }
                   dates.
                 </Text>
 
-                <TouchableOpacity
-                  style={[styles.primaryButton, submitting && styles.disabledButton]}
+                <AppButton
+                  label="Create Trip & Get Code 🚀"
                   onPress={handleCreate}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>Create Trip & Get Code 🚀</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+                  loading={submitting}
+                />
+              </FadeInView>
             </View>
           ) : (
             /* Post Creation Confirmation & Share Screen */
-            <View style={styles.successContainer}>
+            <FadeInView style={styles.successContainer}>
               <View style={styles.successIconBox}>
-                <Text style={styles.successIcon}>🎉</Text>
+                <Ionicons name="checkmark-circle" size={38} color={colors.primaryLight} />
               </View>
               <Text style={styles.successTitle}>Trip Created Successfully!</Text>
               <Text style={styles.successSub}>{createdTrip.name}</Text>
 
               {/* Invite Code Box */}
-              <View style={styles.inviteBox}>
-                <Text style={styles.inviteLabel}>INVITE CODE FOR FRIENDS</Text>
-                <Text style={styles.inviteCodeText}>{createdTrip.inviteCode}</Text>
-                <Text style={styles.inviteDeepLinkText}>
-                  triptrack://join/{createdTrip.inviteCode}
-                </Text>
-              </View>
+              <CodeDisplay code={createdTrip.inviteCode} caption="Invite code for friends" />
+              <Text style={styles.inviteDeepLinkText}>
+                triptrack://join/{createdTrip.inviteCode}
+              </Text>
 
               <View style={styles.successActions}>
-                <TouchableOpacity style={styles.shareBtn} onPress={handleShareInvite}>
-                  <Text style={styles.shareBtnText}>📤 Share Invite Link & Code</Text>
-                </TouchableOpacity>
+                <AppButton
+                  label="📤 Share Invite Link & Code"
+                  onPress={handleShareInvite}
+                  icon="share-social-outline"
+                />
 
-                <TouchableOpacity style={styles.continueBtn} onPress={handleContinueToTrip}>
-                  <Text style={styles.continueBtnText}>Go to Trip Details →</Text>
-                </TouchableOpacity>
+                <AppButton
+                  label="Go to Trip Details →"
+                  onPress={handleContinueToTrip}
+                  variant="secondary"
+                />
               </View>
-            </View>
+            </FadeInView>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -186,186 +180,124 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   container: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
     paddingBottom: 40,
   },
   backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
-    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.xl,
   },
   backBtnText: {
     color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.xxl,
   },
-  headerIcon: {
-    fontSize: 36,
-    marginBottom: 8,
+  headerIconTile: {
+    width: 62,
+    height: 62,
+    borderRadius: radius.xl,
+    backgroundColor: colors.tintPrimary,
+    borderWidth: 1.5,
+    borderColor: colors.borderActive,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: 24,
     fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: letterSpacing.tight,
   },
   subtitle: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginTop: 4,
+    marginTop: spacing.xs + 2,
     textAlign: 'center',
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: radius.lg,
+    padding: spacing.lg + 4,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: colors.inputBg,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.textPrimary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 16,
+    gap: spacing.md,
   },
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
   },
   helperText: {
     fontSize: 12,
     color: colors.textMuted,
-    marginBottom: 20,
-    lineHeight: 16,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  primaryButtonText: {
-    color: '#FFF',
-    fontSize: 15,
-    fontWeight: '700',
+    lineHeight: 17,
+    marginTop: -spacing.xs,
   },
   errorBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.errorBox,
+    borderRadius: radius.sm,
+    padding: spacing.md,
   },
   errorText: {
     color: colors.danger,
     fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
   },
   successContainer: {
     alignItems: 'center',
-    paddingTop: 10,
+    paddingTop: spacing.sm + 2,
   },
   successIconBox: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(20, 184, 166, 0.15)',
+    width: 72,
+    height: 72,
+    borderRadius: radius.pill,
+    backgroundColor: colors.tintPrimary,
+    borderWidth: 1,
+    borderColor: colors.borderActive,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-  },
-  successIcon: {
-    fontSize: 36,
+    marginBottom: spacing.lg,
   },
   successTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: letterSpacing.tight,
   },
   successSub: {
     fontSize: 16,
     color: colors.primaryLight,
-    fontWeight: '600',
-    marginTop: 4,
-    marginBottom: 24,
-  },
-  inviteBox: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    borderColor: colors.borderActive,
-    borderWidth: 1.5,
-    marginBottom: 24,
-  },
-  inviteLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.textMuted,
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  inviteCodeText: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: colors.primaryLight,
-    letterSpacing: 4,
-    marginBottom: 8,
+    fontWeight: '700',
+    marginTop: spacing.xs + 2,
+    marginBottom: spacing.xl,
   },
   inviteDeepLinkText: {
     fontSize: 12,
     color: colors.textSecondary,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginTop: spacing.sm,
+    marginBottom: spacing.xl,
   },
   successActions: {
     width: '100%',
-    gap: 12,
-  },
-  shareBtn: {
-    backgroundColor: colors.secondary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  shareBtnText: {
-    color: '#FFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  continueBtn: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderColor: colors.border,
-    borderWidth: 1,
-  },
-  continueBtnText: {
-    color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '600',
+    gap: spacing.md,
   },
 });

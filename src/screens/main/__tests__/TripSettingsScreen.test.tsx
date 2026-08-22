@@ -67,7 +67,10 @@ describe('TripSettingsScreen thresholds', () => {
 
   it('lets the organizer step warning and critical values and save them', async () => {
     const view = render(
-      <TripSettingsScreen route={{ params: { tripId: 'trip-1' } }} navigation={{ goBack: jest.fn() }} />,
+      <TripSettingsScreen
+        route={{ params: { tripId: 'trip-1' } }}
+        navigation={{ goBack: jest.fn() }}
+      />,
     );
 
     await waitFor(() => expect(view.getByText('Warning · 200 m')).toBeTruthy());
@@ -88,7 +91,10 @@ describe('TripSettingsScreen thresholds', () => {
   it('shows read-only thresholds for a non-organizer', async () => {
     (useAuth as jest.Mock).mockReturnValue({ user: { uid: 'user-2' } });
     const view = render(
-      <TripSettingsScreen route={{ params: { tripId: 'trip-1' } }} navigation={{ goBack: jest.fn() }} />,
+      <TripSettingsScreen
+        route={{ params: { tripId: 'trip-1' } }}
+        navigation={{ goBack: jest.fn() }}
+      />,
     );
     await waitFor(() => expect(view.getByText(/Warning 200 m · Critical 500 m/)).toBeTruthy());
     expect(view.queryByText('Save thresholds')).toBeNull();

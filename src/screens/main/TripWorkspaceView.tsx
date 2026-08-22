@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   ScrollView,
   Share,
   StyleSheet,
@@ -17,6 +18,7 @@ import { TripActivityList } from '../../components/trip/TripActivityList';
 import { BackgroundPermissionModal } from '../../components/location/BackgroundPermissionModal';
 import { MemberRow } from '../../components/trip/MemberRow';
 import { colors } from '../../theme/colors';
+import { radius, spacing } from '../../theme';
 import { MemberLocation, TripStop } from '../../types/location';
 import { TripRoutePoint } from '../../types/route';
 import { Trip, TripAlertEvent, TripStatistics } from '../../types/trip';
@@ -24,6 +26,9 @@ import { MemberNavigationStatus, PlannedRoute } from '../../types/navigation';
 import { TripMemberRowData } from './TripDetailView';
 import { isNudgeRateLimited, MemberNudgeEvent } from '../../services/supabase/memberNudges';
 import { TripSettingsScreen } from './TripSettingsScreen';
+import { Chip, ChipTone } from '../../components/ui/Chips';
+import { StatTile } from '../../components/ui/Card';
+import { FadeInView } from '../../components/ui/FadeInView';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
 
@@ -90,6 +95,80 @@ const durationLabel = (seconds = 0) => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
+};
+
+const tripStatusTone = (status: string): ChipTone =>
+  status === 'active' ? 'primary' : status === 'planned' ? 'warning' : 'neutral';
+
+/**
+ * Floating pill tab bar with a spring-sliding active indicator.
+ */
+const AnimatedTabBar = ({
+  tabs,
+  active,
+  onSelect,
+}: {
+  tabs: { key: WorkspaceTab; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[];
+  active: WorkspaceTab;
+  onSelect: (tab: WorkspaceTab) => void;
+}) => {
+  const indicatorX = useRef(
+    new Animated.Value(tabs.findIndex((item) => item.key === active)),
+  ).current;
+  const [tabWidth, setTabWidth] = useState(0);
+
+  useEffect(() => {
+    const index = Math.max(
+      0,
+      tabs.findIndex((item) => item.key === active),
+    );
+    Animated.spring(indicatorX, {
+      toValue: index,
+      speed: 40,
+      bounciness: 7,
+      useNativeDriver: true,
+    }).start();
+  }, [active, indicatorX, tabs]);
+
+  return (
+    <View style={styles.tabBar} onLayout={(event) => setTabWidth(event.nativeEvent.layout.width)}>
+      {tabWidth > 0 ? (
+        <Animated.View
+          style={[
+            styles.tabIndicator,
+            {
+              width: (tabWidth - 8) / tabs.length,
+              transform: [
+                {
+                  translateX: indicatorX.interpolate({
+                    inputRange: [0, tabs.length - 1],
+                    outputRange: [4, 4 + ((tabWidth - 8) / tabs.length) * (tabs.length - 1)],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      ) : null}
+      {tabs.map((item) => (
+        <TouchableOpacity
+          key={item.key}
+          style={styles.tab}
+          onPress={() => onSelect(item.key)}
+          accessibilityState={{ selected: active === item.key }}
+        >
+          <Ionicons
+            name={active === item.key ? (item.icon.replace('-outline', '') as any) : item.icon}
+            size={19}
+            color={active === item.key ? colors.primaryLight : colors.textMuted}
+          />
+          <Text style={[styles.tabText, active === item.key && styles.tabTextActive]}>
+            {item.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 };
 
 export const TripWorkspaceView = (props: Props) => {
@@ -262,13 +341,26 @@ export const TripWorkspaceView = (props: Props) => {
       return (
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.stats}>
-            <Stat
+            <StatTile
               label="Distance"
               value={`${((props.statistics?.routeDistanceMeters || 0) / 1000).toFixed(1)} km`}
+              icon="speedometer-outline"
             />
-            <Stat label="Elapsed" value={durationLabel(elapsed)} />
-            <Stat label="Stopped" value={durationLabel(props.statistics?.stoppedSeconds)} />
-            <Stat label="Stops" value={String(props.stops.length)} />
+            <StatTile label="Elapsed" value={durationLabel(elapsed)} icon="time-outline" />
+            <StatTile
+              label="Stopped"
+              value={durationLabel(props.statistics?.stoppedSeconds)}
+              icon="pause-circle-outline"
+              tint={colors.tintLink}
+              iconColor={colors.link}
+            />
+            <StatTile
+              label="Stops"
+              value={String(props.stops.length)}
+              icon="flag-outline"
+              tint={colors.tintWarning}
+              iconColor={colors.warning}
+            />
           </View>
           {props.pendingCount ? (
             <TouchableOpacity onPress={props.onRetrySync}>
@@ -495,17 +587,20 @@ export const TripWorkspaceView = (props: Props) => {
         <TouchableOpacity
           style={styles.iconButton}
           onPress={() => props.navigation.navigate('TripList')}
+          accessibilityLabel="Back to trips"
         >
-          <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
+          <Ionicons name="chevron-back" size={21} color={colors.textSecondary} />
         </TouchableOpacity>
         <View style={styles.flex}>
           <View style={styles.titleLine}>
             <Text style={styles.title} numberOfLines={1}>
               {props.trip.name}
             </Text>
-            <Text style={[styles.status, props.trip.status === 'active' && styles.active]}>
-              {props.trip.status}
-            </Text>
+            <Chip
+              label={props.trip.status || 'active'}
+              tone={tripStatusTone(props.trip.status || 'active')}
+              icon={props.trip.status === 'active' ? 'radio-outline' : undefined}
+            />
           </View>
           <Text style={styles.sub}>
             {props.trip.inviteCode} · {props.memberRows.length} members · {props.stops.length} stops
@@ -513,36 +608,30 @@ export const TripWorkspaceView = (props: Props) => {
           </Text>
         </View>
         {props.isOrganizer && props.trip.status === 'planned' ? (
-          <TouchableOpacity onPress={props.onStartTrip}>
-            <Ionicons name="play-circle" size={28} color={colors.success} />
+          <TouchableOpacity
+            style={styles.headerPlayTile}
+            onPress={props.onStartTrip}
+            accessibilityLabel="Start trip"
+          >
+            <Ionicons name="play" size={20} color={colors.success} />
           </TouchableOpacity>
         ) : null}
         {props.isOrganizer && props.trip.status === 'active' ? (
-          <TouchableOpacity onPress={props.onEndTrip}>
-            <Ionicons name="stop-circle" size={28} color={colors.critical} />
+          <TouchableOpacity
+            style={styles.headerPlayTile}
+            onPress={props.onEndTrip}
+            accessibilityLabel="End trip"
+          >
+            <Ionicons name="stop" size={18} color={colors.critical} />
           </TouchableOpacity>
         ) : null}
       </View>
-      <View style={styles.body}>{content()}</View>
-      <View style={styles.tabBar}>
-        {tabs.map((item) => (
-          <TouchableOpacity
-            key={item.key}
-            style={styles.tab}
-            onPress={() => setTab(item.key)}
-            accessibilityState={{ selected: tab === item.key }}
-          >
-            <Ionicons
-              name={tab === item.key ? (item.icon.replace('-outline', '') as any) : item.icon}
-              size={21}
-              color={tab === item.key ? colors.primaryLight : colors.textMuted}
-            />
-            <Text style={[styles.tabText, tab === item.key && styles.tabTextActive]}>
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.body}>
+        <FadeInView key={tab} duration={200} style={styles.bodyFiller}>
+          {content()}
+        </FadeInView>
       </View>
+      <AnimatedTabBar tabs={tabs} active={tab} onSelect={setTab} />
       <BackgroundPermissionModal
         visible={props.showBackgroundPermissionModal}
         onConfirmAlways={props.onConfirmAlways}
@@ -552,32 +641,41 @@ export const TripWorkspaceView = (props: Props) => {
   );
 };
 
-const Stat = ({ label, value }: { label: string; value: string }) => (
-  <View style={styles.stat}>
-    <Text style={styles.statValue}>{value}</Text>
-    <Text style={styles.sub}>{label}</Text>
-  </View>
-);
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   body: { flex: 1 },
+  bodyFiller: { flex: 1 },
   flex: { flex: 1 },
-  content: { padding: 14, paddingBottom: 24, gap: 12 },
+  content: { padding: spacing.md + 2, paddingBottom: spacing.xxl, gap: spacing.md },
   header: {
     minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
+    gap: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.surface,
   },
-  iconButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  titleLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   title: { color: colors.textPrimary, fontSize: 18, fontWeight: '800', flexShrink: 1 },
-  status: { color: colors.textMuted, fontSize: 10, textTransform: 'uppercase' },
-  active: { color: colors.success },
+  headerPlayTile: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sub: { color: colors.textSecondary, fontSize: 11, marginTop: 2 },
   mapScreen: { flex: 1, backgroundColor: colors.background },
   mapTopOverlay: {
@@ -706,20 +804,34 @@ const styles = StyleSheet.create({
   leave: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   leaveText: { color: colors.critical, fontWeight: '700' },
   tabBar: {
-    height: 64,
+    height: 62,
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm + 2,
+    marginTop: spacing.xs,
+    borderRadius: radius.xl,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    borderRadius: radius.lg,
+    backgroundColor: colors.tintPrimary,
+    borderWidth: 1,
+    borderColor: colors.borderActive,
   },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
-  tabText: { color: colors.textMuted, fontSize: 10 },
+  tabText: { color: colors.textMuted, fontSize: 10, fontWeight: '600' },
   tabTextActive: { color: colors.primaryLight, fontWeight: '800' },
   qr: {
     alignItems: 'center',
-    gap: 4,
-    padding: 14,
-    borderRadius: 8,
+    gap: spacing.xs + 2,
+    padding: spacing.md + 2,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,

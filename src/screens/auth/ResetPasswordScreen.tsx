@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
+import { letterSpacing, radius, spacing } from '../../theme';
+import { AppButton } from '../../components/ui/Buttons';
+import { LabeledInput } from '../../components/ui/Inputs';
+import { FadeInView } from '../../components/ui/FadeInView';
 
 export const ResetPasswordScreen: React.FC = () => {
   const { completePasswordReset } = useAuth();
@@ -34,40 +32,40 @@ export const ResetPasswordScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.container}>
-        <Text style={styles.title}>Set a new password</Text>
-        <Text style={styles.helper}>
-          Use at least 8 characters. A longer, unique passphrase is recommended.
-        </Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <TextInput
-          style={styles.input}
-          placeholder="New password"
-          placeholderTextColor={colors.textMuted}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          autoCapitalize="none"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm new password"
-          placeholderTextColor={colors.textMuted}
-          secureTextEntry
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          autoCapitalize="none"
-        />
-        <TouchableOpacity
-          style={[styles.button, submitting && styles.disabled]}
-          onPress={submit}
-          disabled={submitting}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <Text style={styles.buttonText}>Update password</Text>
-          )}
-        </TouchableOpacity>
+        <FadeInView style={styles.header}>
+          <View style={styles.iconTile}>
+            <Ionicons name="lock-closed-outline" size={24} color={colors.primaryLight} />
+          </View>
+          <Text style={styles.title}>Set a new password</Text>
+          <Text style={styles.helper}>
+            Use at least 8 characters. A longer, unique passphrase is recommended.
+          </Text>
+        </FadeInView>
+        <FadeInView delay={100} style={styles.card}>
+          {error ? (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle-outline" size={15} color={colors.danger} />
+              <Text style={styles.error}>{error}</Text>
+            </View>
+          ) : null}
+          <LabeledInput
+            label="New password"
+            placeholder="New password"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            autoCapitalize="none"
+          />
+          <LabeledInput
+            label="Confirm new password"
+            placeholder="Confirm new password"
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            autoCapitalize="none"
+          />
+          <AppButton label="Update password" onPress={submit} loading={submitting} />
+        </FadeInView>
       </View>
     </SafeAreaView>
   );
@@ -75,26 +73,41 @@ export const ResetPasswordScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  container: { flex: 1, justifyContent: 'center', padding: 24 },
-  title: { color: colors.textPrimary, fontSize: 26, fontWeight: '800', marginBottom: 10 },
-  helper: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, marginBottom: 20 },
-  error: { color: colors.danger, marginBottom: 14 },
-  input: {
-    backgroundColor: colors.inputBg,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 8,
-    color: colors.textPrimary,
-    padding: 14,
-    marginBottom: 12,
-  },
-  button: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    padding: 14,
+  container: { flex: 1, justifyContent: 'center', padding: spacing.xl },
+  header: { marginBottom: spacing.xl },
+  iconTile: {
+    width: 58,
+    height: 58,
+    borderRadius: radius.xl,
+    backgroundColor: colors.tintPrimary,
+    borderWidth: 1.5,
+    borderColor: colors.borderActive,
     alignItems: 'center',
-    marginTop: 4,
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
-  disabled: { opacity: 0.6 },
-  buttonText: { color: '#FFF', fontWeight: '700' },
+  title: {
+    color: colors.textPrimary,
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: letterSpacing.tight,
+  },
+  helper: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, marginTop: 6 },
+  card: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg + 4,
+    gap: spacing.md,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.errorBox,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+  },
+  error: { color: colors.danger, fontSize: 13, flex: 1, lineHeight: 18 },
 });
