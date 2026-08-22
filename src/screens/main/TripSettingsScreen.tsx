@@ -37,6 +37,7 @@ import {
 import { restartBackgroundLocationTrackingIfRunning } from '../../services/backgroundLocation';
 import {
   CRITICAL_MAX_METERS,
+  THRESHOLD_STEP_METERS,
   WARNING_MAX_METERS,
   WARNING_MIN_METERS,
   criticalMinimumForWarning,
@@ -102,6 +103,71 @@ const baseSettings: {
     color: colors.primaryLight,
   },
 ];
+
+/**
+ * One threshold row: label with live draft value, − / + steppers, and a
+ * slider that snaps on release. Shared by the warning and critical inputs.
+ */
+const ThresholdControl = ({
+  label,
+  draftMeters,
+  meters,
+  minimum,
+  maximum,
+  tint,
+  onStep,
+  onDraft,
+  onSlideStart,
+  onSlideComplete,
+}: {
+  label: string;
+  draftMeters: number;
+  meters: number;
+  minimum: number;
+  maximum: number;
+  tint: string;
+  onStep: (direction: -1 | 1) => void;
+  onDraft: (value: number) => void;
+  onSlideStart: () => void;
+  onSlideComplete: (value: number) => void;
+}) => (
+  <>
+    <View style={styles.thresholdHeader}>
+      <Text style={styles.rowTitle}>
+        {label} · {draftMeters} m
+      </Text>
+      <View style={styles.stepperRow}>
+        <TouchableOpacity
+          style={styles.stepper}
+          accessibilityLabel={`Decrease ${label.toLowerCase()} threshold`}
+          onPress={() => onStep(-1)}
+        >
+          <Ionicons name="remove" size={18} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.stepper}
+          accessibilityLabel={`Increase ${label.toLowerCase()} threshold`}
+          onPress={() => onStep(1)}
+        >
+          <Ionicons name="add" size={18} color={colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
+    </View>
+    <Slider
+      style={styles.slider}
+      minimumValue={minimum}
+      maximumValue={maximum}
+      step={THRESHOLD_STEP_METERS}
+      value={meters}
+      onSlidingStart={onSlideStart}
+      onValueChange={(value) => onDraft(snapThresholdMeters(value, minimum, maximum))}
+      onSlidingComplete={onSlideComplete}
+      minimumTrackTintColor={tint}
+      maximumTrackTintColor={colors.border}
+      thumbTintColor={tint}
+    />
+  </>
+);
 
 export const TripSettingsScreen = ({ route, navigation }: Props) => {
   const { tripId } = route.params || {};
@@ -405,91 +471,39 @@ export const TripSettingsScreen = ({ route, navigation }: Props) => {
                 How far behind the Route Leader counts as a warning or critical alert. Use + / − if
                 the slider is hard to drag.
               </Text>
-              <View style={styles.thresholdHeader}>
-                <Text style={styles.rowTitle}>Warning · {draftWarningMeters} m</Text>
-                <View style={styles.stepperRow}>
-                  <TouchableOpacity
-                    style={styles.stepper}
-                    accessibilityLabel="Decrease warning threshold"
-                    onPress={() => applyWarningMeters(nextWarningMeters(warningMeters, -1))}
-                  >
-                    <Ionicons name="remove" size={18} color={colors.textPrimary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.stepper}
-                    accessibilityLabel="Increase warning threshold"
-                    onPress={() => applyWarningMeters(nextWarningMeters(warningMeters, 1))}
-                  >
-                    <Ionicons name="add" size={18} color={colors.textPrimary} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <Slider
-                style={styles.slider}
-                minimumValue={WARNING_MIN_METERS}
-                maximumValue={WARNING_MAX_METERS}
-                step={50}
-                value={warningMeters}
-                onSlidingStart={() => setSlidersActive(true)}
-                onValueChange={(value) =>
-                  setDraftWarningMeters(
-                    snapThresholdMeters(value, WARNING_MIN_METERS, WARNING_MAX_METERS),
-                  )
+              <ThresholdControl
+                label="Warning"
+                draftMeters={draftWarningMeters}
+                meters={warningMeters}
+                minimum={WARNING_MIN_METERS}
+                maximum={WARNING_MAX_METERS}
+                tint={colors.warning}
+                onStep={(direction) =>
+                  applyWarningMeters(nextWarningMeters(warningMeters, direction))
                 }
-                onSlidingComplete={(value) => {
+                onDraft={setDraftWarningMeters}
+                onSlideStart={() => setSlidersActive(true)}
+                onSlideComplete={(value) => {
                   applyWarningMeters(value);
                   setSlidersActive(false);
                 }}
-                minimumTrackTintColor={colors.warning}
-                maximumTrackTintColor={colors.border}
-                thumbTintColor={colors.warning}
               />
-              <View style={styles.thresholdHeader}>
-                <Text style={styles.rowTitle}>Critical · {draftCriticalMeters} m</Text>
-                <View style={styles.stepperRow}>
-                  <TouchableOpacity
-                    style={styles.stepper}
-                    accessibilityLabel="Decrease critical threshold"
-                    onPress={() =>
-                      applyCriticalMeters(nextCriticalMeters(criticalMeters, warningMeters, -1))
-                    }
-                  >
-                    <Ionicons name="remove" size={18} color={colors.textPrimary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.stepper}
-                    accessibilityLabel="Increase critical threshold"
-                    onPress={() =>
-                      applyCriticalMeters(nextCriticalMeters(criticalMeters, warningMeters, 1))
-                    }
-                  >
-                    <Ionicons name="add" size={18} color={colors.textPrimary} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <Slider
-                style={styles.slider}
-                minimumValue={criticalMinimumForWarning(warningMeters)}
-                maximumValue={CRITICAL_MAX_METERS}
-                step={50}
-                value={criticalMeters}
-                onSlidingStart={() => setSlidersActive(true)}
-                onValueChange={(value) =>
-                  setDraftCriticalMeters(
-                    snapThresholdMeters(
-                      value,
-                      criticalMinimumForWarning(warningMeters),
-                      CRITICAL_MAX_METERS,
-                    ),
-                  )
+              <ThresholdControl
+                label="Critical"
+                draftMeters={draftCriticalMeters}
+                meters={criticalMeters}
+                minimum={criticalMinimumForWarning(warningMeters)}
+                maximum={CRITICAL_MAX_METERS}
+                tint={colors.critical}
+                onStep={(direction) =>
+                  applyCriticalMeters(nextCriticalMeters(criticalMeters, warningMeters, direction))
                 }
-                onSlidingComplete={(value) => {
+                onDraft={setDraftCriticalMeters}
+                onSlideStart={() => setSlidersActive(true)}
+                onSlideComplete={(value) => {
                   applyCriticalMeters(value);
                   setSlidersActive(false);
                 }}
-                minimumTrackTintColor={colors.critical}
-                maximumTrackTintColor={colors.border}
-                thumbTintColor={colors.critical}
               />
               <TouchableOpacity
                 style={styles.saveThresholds}
