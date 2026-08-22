@@ -32,6 +32,9 @@ verify_jwt = true
 [functions.send-member-departure]
 verify_jwt = false
 
+[functions.send-member-nudge]
+verify_jwt = false
+
 [functions.calculate-route]
 verify_jwt = true
 
