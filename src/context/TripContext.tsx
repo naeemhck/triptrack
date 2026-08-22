@@ -2,10 +2,8 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 
 import { MemberLocation, TripStop } from '../types/location';
 import { Trip, TripMember, TripPreview } from '../types/trip';
-import { stopBackgroundLocationTracking } from '../services/backgroundLocation';
-import { listLocations, upsertLocation } from '../services/supabase/locations';
-import * as Crypto from 'expo-crypto';
-import { subscribeToTripTable } from '../services/supabase/realtime';
+import { listLocations } from '../services/supabase/locations';
+import { subscribeToTripTable, RealtimeTripTable } from '../services/supabase/realtime';
 import { listStops } from '../services/supabase/stops';
 import {
   createTrip as createSupabaseTrip,
@@ -13,7 +11,6 @@ import {
   joinTrip,
   listMembers,
   listTrips,
-  runTripRpc,
   setSharing,
 } from '../services/supabase/trips';
 import { useAuth } from './AuthContext';
@@ -27,15 +24,12 @@ interface TripContextType {
   createTrip: (name: string, startDate: string, endDate: string) => Promise<Trip>;
   getTripPreviewByCode: (code: string) => Promise<TripPreview>;
   joinTripByCode: (code: string) => Promise<Trip>;
-  leaveTrip: (tripId: string) => Promise<void>;
-  getTripMembers: (tripId: string) => Promise<TripMember[]>;
-  listenToTripMembers: (tripId: string, callback: (members: TripMember[]) => void) => () => void;
-  updateMemberLocation: (tripId: string, lat: number, lng: number) => Promise<void>;
   toggleLocationSharing: (
     tripId: string,
     enabled: boolean,
     mode?: 'always' | 'foreground' | 'off',
   ) => Promise<void>;
+  listenToTripMembers: (tripId: string, callback: (members: TripMember[]) => void) => () => void;
   listenToTripLocations: (
     tripId: string,
     callback: (locations: MemberLocation[]) => void,
@@ -44,6 +38,34 @@ interface TripContextType {
 }
 
 const TripContext = createContext<TripContextType | undefined>(undefined);
+
+/**
+ * Shared listener body for the trip-scoped realtime tables: fetch the full
+ * list once on subscribe, refetch on any table change, stop cleanly on
+ * unsubscribe. `active` guards the callback against post-unsubscribe fetches.
+ */
+const listenToTripTable = <T,>(
+  table: RealtimeTripTable,
+  fetcher: (tripId: string) => Promise<T[]>,
+  tripId: string,
+  callback: (items: T[]) => void,
+): (() => void) => {
+  let active = true;
+  const refresh = async () => {
+    try {
+      const next = await fetcher(tripId);
+      if (active) callback(next);
+    } catch {
+      if (__DEV__) console.warn(`[Realtime] Unable to refresh ${table}.`);
+    }
+  };
+  void refresh();
+  const unsubscribe = subscribeToTripTable(table, tripId, () => void refresh());
+  return () => {
+    active = false;
+    unsubscribe();
+  };
+};
 
 export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -89,85 +111,12 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return trip;
   };
 
-  const leaveTrip = async (tripId: string) => {
-    await stopBackgroundLocationTracking();
-    await runTripRpc('leave_trip', tripId);
-    await refreshTrips();
-  };
-
-  const listenToTripMembers = (tripId: string, callback: (members: TripMember[]) => void) => {
-    let active = true;
-    const refresh = async () => {
-      try {
-        const next = await listMembers(tripId);
-        if (active) callback(next);
-      } catch {
-        if (__DEV__) console.warn('[Realtime] Unable to refresh trip members.');
-      }
-    };
-    void refresh();
-    const unsubscribe = subscribeToTripTable('trip_members', tripId, () => void refresh());
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  };
-
-  const updateMemberLocation = async (tripId: string, lat: number, lng: number) => {
-    if (!user) throw new Error('Authentication required.');
-    await upsertLocation(
-      tripId,
-      user.uid,
-      { lat, lng, accuracy: 50, sampledAt: Date.now() },
-      Crypto.randomUUID(),
-    );
-  };
-
   const toggleLocationSharing = async (
     tripId: string,
     enabled: boolean,
     mode?: 'always' | 'foreground' | 'off',
   ) => {
     await setSharing(tripId, enabled, enabled ? mode || 'always' : 'off');
-  };
-
-  const listenToTripLocations = (
-    tripId: string,
-    callback: (locations: MemberLocation[]) => void,
-  ) => {
-    let active = true;
-    const refresh = async () => {
-      try {
-        const next = await listLocations(tripId);
-        if (active) callback(next);
-      } catch {
-        if (__DEV__) console.warn('[Realtime] Unable to refresh trip locations.');
-      }
-    };
-    void refresh();
-    const unsubscribe = subscribeToTripTable('trip_locations', tripId, () => void refresh());
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  };
-
-  const listenToTripStops = (tripId: string, callback: (stops: TripStop[]) => void) => {
-    let active = true;
-    const refresh = async () => {
-      try {
-        const next = await listStops(tripId);
-        if (active) callback(next);
-      } catch (error) {
-        if (__DEV__) console.warn('[Realtime] Unable to refresh trip stops.', error);
-      }
-    };
-    void refresh();
-    const unsubscribe = subscribeToTripTable('trip_stops', tripId, () => void refresh());
-    return () => {
-      active = false;
-      unsubscribe();
-    };
   };
 
   return (
@@ -181,13 +130,13 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createTrip,
         getTripPreviewByCode: getTripPreview,
         joinTripByCode,
-        leaveTrip,
-        getTripMembers: listMembers,
-        listenToTripMembers,
-        updateMemberLocation,
         toggleLocationSharing,
-        listenToTripLocations,
-        listenToTripStops,
+        listenToTripMembers: (tripId, callback) =>
+          listenToTripTable('trip_members', listMembers, tripId, callback),
+        listenToTripLocations: (tripId, callback) =>
+          listenToTripTable('trip_locations', listLocations, tripId, callback),
+        listenToTripStops: (tripId, callback) =>
+          listenToTripTable('trip_stops', listStops, tripId, callback),
       }}
     >
       {children}

@@ -38,7 +38,7 @@ export const VerifyCodeScreen: React.FC<VerifyCodeScreenProps> = ({ route, navig
     setSubmitting(true);
     try {
       await verifyOtpCode(email || '', code);
-      // Auth state listener in AuthContext will update and automatically switch stack to HomeScreen
+      // Auth state listener in AuthContext will update and automatically switch to the trips stack
     } catch (err: any) {
       setErrorMsg(err.message || 'Verification failed. Please try again.');
       setSubmitting(false);

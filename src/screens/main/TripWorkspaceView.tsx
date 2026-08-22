@@ -20,9 +20,10 @@ import { colors } from '../../theme/colors';
 import { radius, spacing } from '../../theme';
 import { MemberLocation, TripStop } from '../../types/location';
 import { TripRoutePoint } from '../../types/route';
-import { Trip, TripAlertEvent, TripStatistics } from '../../types/trip';
+import type { MemberRouteStatus } from '../../types/route';
+import { Trip, TripAlertEvent, TripMember, TripStatistics } from '../../types/trip';
+import { LocationFreshnessResult } from '../../utils/locationFreshness';
 import { MemberNavigationStatus, PlannedRoute } from '../../types/navigation';
-import { TripMemberRowData } from './TripDetailView';
 import { isNudgeRateLimited, MemberNudgeEvent } from '../../services/supabase/memberNudges';
 import { TripSettingsScreen } from './TripSettingsScreen';
 import { Chip, statusTone } from '../../components/ui/Chips';
@@ -33,6 +34,14 @@ import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
 
 export type WorkspaceTab = 'map' | 'activity' | 'members' | 'alerts' | 'settings';
+
+/** One member row as rendered in the workspace members list. */
+export interface TripMemberRowData {
+  member: TripMember;
+  freshness: LocationFreshnessResult;
+  active: boolean;
+  routeStatus?: MemberRouteStatus;
+}
 
 interface Props {
   trip: Trip;
